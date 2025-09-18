@@ -305,7 +305,11 @@ class FeedForward:
         elif not callable(loss_fn):
             raise ValueError("Loss must be a callable or a string key in loss_functions")
         if metric is None:
-            metric = metrics.accuracy
+            output_size = self.layers[-1].n 
+            if output_size == 1:
+                metric = metrics.mse
+            else:   
+                metric = metrics.accuracy
         elif isinstance(metric, str):
             if metric in metrics.metrics_dict:
                 metric = metrics.metrics_dict[metric]
