@@ -253,7 +253,7 @@ class FeedForward:
         y,
         epochs=10,
         loss_fn=None,
-        verbose=True,
+        verbose=False,
         learning_rate=0.01,
         metric = None,
         batch_size=32,
