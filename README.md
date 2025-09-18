@@ -1,0 +1,49 @@
+## Basic Neural Network implementation from scratch using numpy
+
+#### Modules (all in my_nn)
+1.  activations.py : contains all activation functions used. All part of a class called Activation. Note that softmax is not directly implemented as an activation function. Multiclass classification has a loss function that combines softmax with categorical cross entropy
+   1. loss.py : contains loss functions used. All in a class called Loss.
+   1. metrics.py : contains metrics used either directly to be observed in training or after training
+   1. nn.py : contains some helper functions, the Dense() class, the Dropout() class and a class called FeedForward() used to create a network.
+
+#### Usage
+To create a new dense layer, used Dense(number of inputs, number of outputs, name of activation function). 
+
+To create a dropout layer, use Dropout(drop_probability)
+
+To create a network with layer_1, layer_2,..., layer_n: model = FeedForward(layer_1, layer_2, ..., layer_n)
+   
+#### training a model
+For now, both the feature data and target must be numpy arrays.
+
+Feature set X: dimensions (m, n) : m is number of samples, n is number of features
+
+Target y: dimensions (m, 1): m is number of samples
+
+If y is for a classification task, y should have integer values 0,1,...(number of classes - 1). Binary would just be 0,1. For now, we do not use one-hot encoded targets for multiclass classification
+
+To train: model.fit(X,y, loss_fn=loss_function_name) is the most basic way to do it, but there are additional possible parameters:
+- epochs : number of epochs to train (default is 10)
+- verbose : whether to print intermediate statistics for batchs in the middle of an epoch (default is False)
+- learning_rate : learning rate for the model (default is 0.01)
+- batch_size : size of batches to use for training (default is 32)
+- print_every : When verbose is True, how oftne to print out batch results (default is 10)
+- val_size : If you want to separate part of the training data to be a validation set, this controls the size. Can be a number in [0,1] (for a fraction) or an integer (default is None)
+- val_set : If you want to pass a separate (X_val, y_val) for validation (default is None)
+- clip_value : When not none, gradients will be clipped to the interval [-clip_value, clip_value] (default is None)
+
+Some notes about multiclass classification:
+- The model expects integer numbers to describe classes, not one-hot encoded versions
+- Currently, the output layer should have an Identity as the activation function. This will produce raw logits. If you want probabilities, you can apply softmax to the output
+
+
+#### A sample of using each type of model
+
+sample_networks.ipynb is a notebook with the following:
+- X : a selection of 10000 random points in [-5,5] x [-5,5]
+- y_binary : classification based on the decision boundary of y = x<sup>2</sup> - 2
+- y_multiclass : classification based on decision boundaries being the two branches of the hyperbola y<sup>2</sup> - x<sup>2</sup> = 3
+- y_regression : for regression using z = x<sup>2</sup> + y<sup>2</sup>
+- models : model_binary, model_multiclass, model_regression that train on a subset from a train test split
+- Accuracy for the 2 classication models and MSE for the regression model when applied to the full data
+- Some visualizations of how the models performed.
