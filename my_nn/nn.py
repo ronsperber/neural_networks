@@ -390,7 +390,8 @@ class FeedForward:
                 if verbose:
                     # Optional: print loss every print_every batches
                     if batch_idx % print_every == 0:
-                        print(f"Epoch {epoch}, Batch {batch_idx+1}/{num_batches}, Loss: {loss:.4f}")
+                        running_ave_loss = epoch_loss/end
+                        print(f"Epoch {epoch}, Batch {batch_idx+1}/{num_batches}, Loss: {running_ave_loss:.4f}")
             # at the end of the epoch print out the epoch loss/metric
             metric_value = metric(self.predict(X_train), y_train)
 
