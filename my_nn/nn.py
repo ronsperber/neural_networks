@@ -106,6 +106,7 @@ class Dense:
             raise ValueError("Number of neurons must be positive")
         self.m = num_inputs
         self.n = num_neurons
+        
         self.has_dims = True
         if weights is not None:
             self.W = weights
@@ -126,6 +127,11 @@ class Dense:
                 self.b = bias.reshape(1, self.n)
             else:
                 raise ValueError(f"Bias must be of shape ({self.n},) or (1, {self.n})")
+        self.v_W = np.zeros_like(self.W)   # velocity for momentum/Adam
+        self.v_b = np.zeros_like(self.b)
+        self.m_W = np.zeros_like(self.W)   # first moment for Adam
+        self.m_b = np.zeros_like(self.b)
+
         self.activation_params = activation_params or {}
         if activation not in activations.activation_functions:
             raise ValueError(f"Activation function {activation} not recognized. Must be one of {list(activations.activation_functions.keys())}")
@@ -170,9 +176,35 @@ class Dense:
             params_grads.append((self.b, self.grad_b))
         return params_grads
 
-    def update_weights(self, learning_rate):
-        self.W -= learning_rate * self.grad_W
-        self.b -= learning_rate * self.grad_b
+    def update_weights(self, learning_rate, optimizer="sgd", t=1, beta1=0.9, beta2=0.999, epsilon=1e-8):
+        # possible optimizers:
+        # sgd : standard gradient descent
+        # momentum : momentum optimization
+        # adam : adam optimization
+        if optimizer == "sgd":
+            self.W -= learning_rate * self.grad_W
+            self.b -= learning_rate * self.grad_b
+
+        elif optimizer == "momentum":
+            self.v_W = beta1 * self.v_W + (1 - beta1) * self.grad_W
+            self.v_b = beta1 * self.v_b + (1 - beta1) * self.grad_b
+            self.W -= learning_rate * self.v_W
+            self.b -= learning_rate * self.v_b
+
+        elif optimizer == "adam":
+            self.m_W = beta1 * self.m_W + (1 - beta1) * self.grad_W
+            self.m_b = beta1 * self.m_b + (1 - beta1) * self.grad_b
+            self.v_W = beta2 * self.v_W + (1 - beta2) * (self.grad_W ** 2)
+            self.v_b = beta2 * self.v_b + (1 - beta2) * (self.grad_b ** 2)
+
+            m_hat_W = self.m_W / (1 - beta1**t)
+            m_hat_b = self.m_b / (1 - beta1**t)
+            v_hat_W = self.v_W / (1 - beta2**t)
+            v_hat_b = self.v_b / (1 - beta2**t)
+
+            self.W -= learning_rate * m_hat_W / (np.sqrt(v_hat_W) + epsilon)
+            self.b -= learning_rate * m_hat_b / (np.sqrt(v_hat_b) + epsilon)
+
 
 class Dropout:
     def __init__(self, drop_prob):
@@ -197,8 +229,9 @@ class Dropout:
     def get_params_and_grads(self):
         return []  # Dropout has no parameters
 
-    def update_weights(self, learning_rate):
+    def update_weights(self, **_unused):
         # Dropout has no weights to update
+        # **kwargs is there because the feed forward will pass arguments for the dense layer
         pass
 
         
@@ -206,6 +239,7 @@ class FeedForward:
     # class to combine several layers and pass input to first layer then all the way through
     def __init__(self, *layers, training=True):
         self.layers = layers
+        self.t = 1  # batch-level counter
         self.training = training
         # validate that dimension match up
         # we have to skip dimensionless layers like Dropout
@@ -232,12 +266,29 @@ class FeedForward:
     def backward(self, grad_output):
         for layer in reversed(self.layers):
             grad_output = layer.backward(grad_output)
-    def update_weights(self, learning_rate):
+    def update_weights(self,
+                       learning_rate = 0.01,
+                       optimizer="sgd",
+                       beta1=0.9,
+                       beta2=0.999,
+                       epsilon=1e-8,
+                       t=None):
         """
         Apply the weight updates for all layers.
         """
+        if t is None:
+            t = self.t
         for layer in self.layers:
-            layer.update_weights(learning_rate)
+            layer.update_weights(
+                learning_rate=learning_rate,
+                optimizer=optimizer,
+                beta1=beta1,
+                beta2=beta2,
+                epsilon=epsilon,
+                t=t
+            )
+        
+
     def __call__(self, x):
         return self.forward(x)
 
@@ -262,7 +313,9 @@ class FeedForward:
         val_size=None,
         val_set=None,
         clip_value=None,
-        random_state=None
+        random_state=None,
+        optimizer="sgd",
+        optimizer_config=None
     ):
         """
         fit model based on X,y
@@ -297,7 +350,25 @@ class FeedForward:
             if not None, clip gradients to be in the range [-clip_value, clip_value]
         random_state: int
             random state to use when shuffling data for train/test split
+        optimizer : string
+            description of what optimizer to use for gradient descent
+        optimizer_configs : Dict
+            dictionary of optional configuration values for the optimizers
         """
+        optimizer = optimizer.lower()
+        if optimizer not in ["sgd", "momentum", "adam"]:
+            raise ValueError(f"{optimizer} is not a valid optimizer. Choose one of sgd, momentum, or adam")
+        # create default configs
+        if optimizer_config is None:
+            optimizer_config = {
+                "beta1": 0.9,
+                "beta2": 0.999,
+                "epsilon": 1e-8
+                }
+        # set the configurations
+        beta1 = optimizer_config.get("beta1", 0.9)
+        beta2 = optimizer_config.get("beta2", 0.999)
+        epsilon = optimizer_config.get("epsilon", 1e-8)
         # set up rng to use for shuffling data
         rng = np.random.default_rng(random_state)
         # get the number of neurons in the output layer
@@ -418,7 +489,15 @@ class FeedForward:
                             np.clip(grad, -clip_value, clip_value, out=grad)
 
                 # update weights
-                self.update_weights(learning_rate)
+                self.update_weights(
+                    learning_rate=learning_rate,
+                    optimizer=optimizer,
+                    beta1=beta1,
+                    beta2=beta2,
+                    epsilon=epsilon,
+                    t=self.t
+                    )
+                self.t+=1
 
                 # show output if verbose is set to True based on print_every
                 if verbose:
