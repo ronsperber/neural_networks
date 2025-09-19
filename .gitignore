@@ -1,3 +1,4 @@
 *.png
 .vscode/*
 .vscode/*.* 
+sample_nn.*
