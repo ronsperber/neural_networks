@@ -12,6 +12,8 @@ def mse(y_pred, y_true):
     Returns:
     float: Mean Squared Error.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     return np.mean((y_pred - y_true) ** 2)
 
 def binary_accuracy(y_pred, y_true):
@@ -25,6 +27,8 @@ def binary_accuracy(y_pred, y_true):
     Returns:
     float: Binary Accuracy.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     y_pred_binary = np.round(y_pred)
     return np.mean(y_pred_binary == y_true)
 
@@ -84,6 +88,8 @@ def mae(y_pred, y_true):
     Returns:
     float: Mean Absolute Error.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     return np.mean(np.abs(y_pred - y_true))
 
 def precision(y_pred, y_true):
@@ -97,6 +103,8 @@ def precision(y_pred, y_true):
     Returns:
     float: Precision.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     y_pred_binary = np.round(y_pred)
     true_positives = np.sum((y_pred_binary == 1) & (y_true == 1))
     predicted_positives = np.sum(y_pred_binary == 1)
@@ -117,6 +125,8 @@ def recall(y_pred, y_true):
     Returns:
     float: Recall.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     y_pred_binary = np.round(y_pred)
     true_positives = np.sum((y_pred_binary == 1) & (y_true == 1))
     actual_positives = np.sum(y_true == 1)
@@ -156,6 +166,8 @@ def r2_score(y_pred, y_true):
     Returns:
     float: R-squared value.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     ss_res = np.sum((y_true - y_pred) ** 2)
     ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
     
@@ -175,6 +187,8 @@ def specificity(y_pred, y_true):
     Returns:
     float: Specificity.
     """
+    y_pred = np.asarray(y_pred).ravel()
+    y_true = np.asarray(y_true).ravel()
     y_pred_binary = np.round(y_pred)
     true_negatives = np.sum((y_pred_binary == 0) & (y_true == 0))
     actual_negatives = np.sum(y_true == 0)
