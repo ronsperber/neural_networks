@@ -225,6 +225,7 @@ class FeedForward:
         self.history = None
     def forward(self, x):
         # pass x through all the layers
+        x = np.array(x)  # ensure x is an array
         for layer in self.layers:
             x = layer.forward(x)
         return x
@@ -260,15 +261,16 @@ class FeedForward:
         print_every=10,
         val_size=None,
         val_set=None,
-        clip_value=None
+        clip_value=None,
+        random_state=None
     ):
         """
         fit model based on X,y
         Parameters
         ----------
-        X : numpy array
+        X : np.array | pd.DataFrame | list
             features used to train
-        y : numpy array
+        y : np.array | pd.DataFrame | pd.Series | list
             target used to train
         epochs : int
             number of epochs used in training
@@ -293,31 +295,47 @@ class FeedForward:
             A pair (X_val,y_val) to be used for validation
         clip_value: float
             if not None, clip gradients to be in the range [-clip_value, clip_value]
+        random_state: int
+            random state to use when shuffling data for train/test split
         """
+        # set up rng to use for shuffling data
+        rng = np.random.default_rng(random_state)
+        # get the number of neurons in the output layer
+        output_size = self.layers[-1].n
+        # set up loss function. If none is given, use mse or softmax based on output size
         if loss_fn is None:
-            loss_fn = loss.mse
-            print("No loss function specified, using mse, warning: this may not be appropriate for classification")
+            if output_size == 1:
+                loss_fn = loss.mse
+                print("No loss function specified, using mse, warning: this may not be appropriate for classification")
+            else:   
+                loss_fn = loss.SoftmaxCrossEntropyLoss()
+                print("No loss function specified, using categorical_cross_entropy, warning: this may not be appropriate for regression")
         elif isinstance(loss_fn, str):
+            #if a string is given, look up in loss_functions
             if loss_fn in loss.loss_functions:
                 loss_fn = loss.loss_functions[loss_fn]
             else:
                 raise ValueError(f"Loss function {loss_fn} not recognized. Must be a callable or one of {list(loss.loss_functions.keys())}")
-        elif not callable(loss_fn):
-            raise ValueError("Loss must be a callable or a string key in loss_functions")
+        elif not isinstance(loss_fn, loss.Loss):
+            # if not a string or loss function,  raise error
+            raise ValueError("Loss must be a Loss class or a string key in loss_functions")
         if metric is None:
-            output_size = self.layers[-1].n 
+            # if no metric is given, use mse for regression and accuracy for classification
             if output_size == 1:
                 metric = metrics.mse
             else:   
                 metric = metrics.accuracy
         elif isinstance(metric, str):
+            # if a string is given, look up in metrics_dict
             if metric in metrics.metrics_dict:
                 metric = metrics.metrics_dict[metric]
             else:
                 raise ValueError(f"Metric {metric} not recognized. Must be a callable or one of {list(metrics.metrics_dict.keys())}")
         elif not callable(metric):
             raise ValueError("Metric must be a callable or a string key in metrics_dict")
+        # set the name of the metric for history tracking
         metric_name = metric.__name__
+        # create history if it doesn't exist yet 
         if self.history is None:
             history = {"loss":[], metric_name:[]}
             if val_set is not None or val_size is not None:
@@ -330,32 +348,44 @@ class FeedForward:
             history = self.history
             # we want to increase the epochs as we go
             last_epoch = history["loss"][-1][0]
-            
+        # make sure X,y are arrays for training. 
+        # if they are already arrays, make a copy to avoid modifying the original data    
+        X_train = np.array(X)
+        y_train = np.array(y)
+        
         
         self.set_training(True) # make sure we're in training mode to fit (mostly for dropout)
         # deal with validation set
         # if a validation set is given separately, use X, y to train
         if val_set is not None:
-            X_val,y_val = val_set
-            X_train = X.copy()
-            y_train = y.copy()
+            X_val, y_val = np.array(val_set[0]), np.array(val_set[1]) 
             use_validate = True
         # if no validation set is given, but a size is given, use train_test_split
         # to split into training and validation sets
         elif val_size is not None:
-            X_train,X_val,y_train,y_val = train_test_split(X,y,test_size=val_size)
+            
+            X_train, X_val, y_train, y_val = train_test_split(
+                X_train,
+                y_train,
+                test_size=val_size,
+                random_state=random_state
+                )
             use_validate = True
         # if nothing about validation is given use X, y as training data
         else:
-            X_train = X.copy()
-            y_train = y.copy()
             use_validate = False
+        # make sure all y are the correct shape
+        if y_train.ndim == 1:
+            y_train = y_train.reshape(-1,1)
+        if use_validate and y_val.ndim == 1:
+            y_val = y_val.reshape(-1,1)
         # loop through epochs
         num_samples=X_train.shape[0]
         num_batches = int(np.ceil(num_samples / batch_size))
         for epoch in range(1, epochs+1):
             # shuffle X so that we aren't using the same batches every time
-            permutation = np.random.permutation(num_samples)
+            
+            permutation = rng.permutation(num_samples)
             # use one permutation so we match X and y properly
             X_shuffled = X_train[permutation]
             y_shuffled = y_train[permutation]
