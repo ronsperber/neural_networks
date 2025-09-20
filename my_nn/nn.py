@@ -186,10 +186,10 @@ class Dense:
             self.b -= learning_rate * self.grad_b
 
         elif optimizer == "momentum":
-            self.v_W = beta1 * self.v_W + (1 - beta1) * self.grad_W
-            self.v_b = beta1 * self.v_b + (1 - beta1) * self.grad_b
-            self.W -= learning_rate * self.v_W
-            self.b -= learning_rate * self.v_b
+            self.m_W = beta1 * self.m_W + (1 - beta1) * self.grad_W
+            self.m_b = beta1 * self.m_b + (1 - beta1) * self.grad_b
+            self.W -= learning_rate * self.m_W
+            self.b -= learning_rate * self.m_b
 
         elif optimizer == "adam":
             self.m_W = beta1 * self.m_W + (1 - beta1) * self.grad_W
