@@ -1,5 +1,24 @@
 ## Basic Neural Network implementation from scratch using numpy
 
+
+
+### Setup
+
+1. Create the conda environment
+```bash
+conda env create -f environment.yml
+```
+
+2. Activate the conda environment
+```bash
+conda activate neural_networks
+```
+
+3. Install the package in editable mode
+```bash
+pip install -e .
+```
+
 #### Modules (all in my_nn)
 1.  activations.py : contains all activation functions used. All part of a class called Activation. Note that softmax is not directly implemented as an activation function. Multiclass classification has a loss function that combines softmax with categorical cross entropy
    1. loss.py : contains loss functions used. All in a class called Loss.
@@ -34,16 +53,15 @@ To train: model.fit(X,y, loss_fn=loss_function_name) is the most basic way to do
 
 Some notes about multiclass classification:
 - The model expects integer numbers to describe classes, not one-hot encoded versions
-- Currently, the output layer should have an Identity as the activation function. This will produce raw logits. If you want probabilities, you can apply softmax to the output
+- You can either use raw logits (```activation="linear"```) or softmax (```activation="softmax"```)
+- Using softmax anywhere other than the final layer will cause an error
 
 
-#### A sample of using each type of model
+#### Sample notebooks
+The `notebooks` folder contains some sample notebooks to see how this works
+- `datavisualizations.ipynb` : Visualizations of the different targets for the data (all use the same feature space)
+- `binary_parabola.ipynb` : Runs a model on a data set with binary classification where the true decision boundary is a parabola.
+- `binary_pl.ipynb` : Runs a model on a data set with binary classification where the true decision boundary is an absolute value graph.
+- `multiclass.ipynb` : Runs a model on a data set with multiclass classification where the decision boundaries are 2 branches of a hyperbola
+- `regression.ipynb` : Runs a model on a data set with a regression, where the true function is z = x<sup>2</sup> + y<sup>2</sup>
 
-sample_networks.ipynb is a notebook with the following:
-- X : a selection of 10000 random points in [-5,5] x [-5,5]
-- y_binary : classification based on the decision boundary of y = x<sup>2</sup> - 2
-- y_multiclass : classification based on decision boundaries being the two branches of the hyperbola y<sup>2</sup> - x<sup>2</sup> = 3
-- y_regression : for regression using z = x<sup>2</sup> + y<sup>2</sup>
-- models : model_binary, model_multiclass, model_regression that train on a subset from a train test split
-- Accuracy for the 2 classication models and MSE for the regression model when applied to the full data
-- Some visualizations of how the models performed.
