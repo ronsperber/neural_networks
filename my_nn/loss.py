@@ -28,7 +28,7 @@ class SoftmaxCrossEntropyLoss(Loss):
         # Safety check
         if y_pred.shape[1] <= np.max(y_true):
             raise ValueError(
-                f"SoftmaxCrossEntropyLoss: logits have shape {logits.shape}, "
+                f"SoftmaxCrossEntropyLoss: logits have shape {y_pred.shape}, "
                 f"but y_true has labels up to {np.max(y_true)}. "
                 "Final layer probably has wrong number of outputs."
             )

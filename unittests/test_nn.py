@@ -3,6 +3,11 @@ import numpy as np
 import pandas as pd
 from my_nn import nn, loss
 
+"""
+unit tests for the neural networks
+run pytest test_nn.py to check
+"""
+
 def test_defaults_and_activation_names():
     # Dense layer sets activation_name correctly
     d = nn.Dense(2, 3, activation="ReLU")
@@ -111,7 +116,7 @@ def test_fit_accepts_different_input_types():
     X_df = pd.DataFrame(X_list)
     y_series = pd.Series(y_list)
     net.fit(X_df, y_series)  # should not raise
--
+
 def test_large_batch_size():
     layer = nn.Dense(2, 1)
     net = nn.FeedForward(layer)
