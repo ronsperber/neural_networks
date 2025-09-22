@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 
 # This is meant to generate some specific sample data to test neural networks with
-# There are 4 sample targets generated, all using the same value for XP
+# There are 4 sample targets generated, all using the same value for X
 
 def generate_data(n_samples=10000, seed=None, filename = None, overwrite=False):
     # set a random see for reproducibility if desired

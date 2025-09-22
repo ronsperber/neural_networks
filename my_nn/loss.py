@@ -15,49 +15,34 @@ class Loss(ABC):
         return self.forward(y_pred, y_true)
     
 class SoftmaxCrossEntropyLoss(Loss):
-    def forward(self, logits, y_true, debug=False):
+    def __init__(self, from_logits=True):
+        self.from_logits = from_logits
+
+    def forward(self, y_pred, y_true):
         """
-        logits: shape (batch_size, num_classes), raw scores (no softmax yet)
+        y_pred: shape (batch_size, num_classes), raw scores or softmax (depending on from_logits)
         y_true: shape (batch_size,), integer class labels (0 to num_classes-1)
-        debug: if True, print debug information
         """
-        self.batch_size = logits.shape[0]
+        self.batch_size = y_pred.shape[0]
 
         # Safety check
-        if logits.shape[1] <= np.max(y_true):
+        if y_pred.shape[1] <= np.max(y_true):
             raise ValueError(
                 f"SoftmaxCrossEntropyLoss: logits have shape {logits.shape}, "
                 f"but y_true has labels up to {np.max(y_true)}. "
                 "Final layer probably has wrong number of outputs."
             )
         y_true =np.asarray(y_true).ravel()  # Ensure y_true is a 1D array
-        # Numerical stability
-        shifted_logits = logits - np.max(logits, axis=1, keepdims=True)
-        exp_scores = np.exp(shifted_logits)
-        self.probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-
-        # Debug prints
-        if debug:
-            print("logits min/max/mean:", logits.min(), logits.max(), logits.mean())
-            print("shifted_logits min/max/mean:", shifted_logits.min(), shifted_logits.max(), shifted_logits.mean())
-            print("probs min/max/mean:", self.probs.min(), self.probs.max(), self.probs.mean())
-            print("logits shape:", logits.shape)
-            print("y_true shape:", y_true.shape)
-            print("np.max(y_true):", np.max(y_true))
-            print("self.probs shape before indexing:", self.probs.shape)
-
+        if self.from_logits:
+            # Numerical stability
+            shifted_logits = y_pred - np.max(y_pred, axis=1, keepdims=True)
+            exp_scores = np.exp(shifted_logits)
+            self.probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+        else:
+            self.probs = y_pred
 
         # Cross-entropy loss
         correct_logprobs = -np.log(self.probs[np.arange(self.batch_size), y_true] + 1e-15)
-
-        if debug:
-            print("per-example loss min/max/mean:", correct_logprobs.min(),
-                  correct_logprobs.max(), correct_logprobs.mean())
-            print("logits.shape[0]:", logits.shape[0])
-            print("self.batch_size:", self.batch_size)
-            print("len(correct_logprobs):", len(correct_logprobs))
-
-
         loss = np.sum(correct_logprobs) / self.batch_size
         return loss
 
@@ -94,7 +79,7 @@ class MSE(Loss):
         return loss_der / y_pred.size
     
 loss_functions = {
-    "binary_cross_entropy" : BinaryCrossEntropyLoss(),
-    "categorical_cross_entropy" : SoftmaxCrossEntropyLoss(),
-    "mse" : MSE()
+    "binary_cross_entropy" : lambda from_logits=True: BinaryCrossEntropyLoss(),
+    "categorical_cross_entropy" : lambda from_logits=True : SoftmaxCrossEntropyLoss(from_logits),
+    "mse" : lambda from_logits=True : MSE()
 }

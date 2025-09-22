@@ -48,13 +48,18 @@ class Identity(Activation):
 
 
 
-def softmax(x):
-    # computes the softmax of X
-    # in order to deal with a potential batch of inputs we do the following
-    #x_s = np.squeeze(x, axis=-1)
-    exp_x = np.exp(x)
-    denom = np.sum(exp_x, axis=1, keepdims=True)
-    return (exp_x/denom)[...,np.newaxis]
+
+def softmax(logits):
+    shifted_logits = logits - np.max(logits, axis=1, keepdims=True)
+    exp_scores = np.exp(shifted_logits)
+    return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+
+class SoftMax(Activation):
+    def forward(self, z):
+        return softmax(z)
+    
+    def backward(self, z):
+        return 1.0
         
 class LeakyReLU(Activation):
     def __init__(self, alpha=0.01):
@@ -91,9 +96,11 @@ activation_functions = {
     "sigmoid": lambda **kwargs: Sigmoid(),
     "tanh": lambda **kwargs: Tanh(),
     "identity": lambda **kwargs: Identity(),
+    "linear": lambda **kwargs: Identity(),
     "leaky_relu": lambda alpha=0.01, **kwargs: LeakyReLU(alpha=alpha),
     "elu": lambda alpha=1.0, **kwargs: ELU(alpha=alpha),
-    "swish": lambda **kwargs: Swish()
+    "swish": lambda **kwargs: Swish(),
+    "softmax": lambda **kwargs: SoftMax()
 }
 
 

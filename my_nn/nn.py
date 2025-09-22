@@ -106,14 +106,14 @@ class Dense:
             raise ValueError("Number of neurons must be positive")
         self.m = num_inputs
         self.n = num_neurons
-        
+        self.activation_name = activation.lower()
         self.has_dims = True
         if weights is not None:
             self.W = weights
         else:
-            if activation in ["relu", "leaky_relu", "elu", "swish"]:
+            if self.activation_name in ["relu", "leaky_relu", "elu", "swish"]:
                 self.W = np.random.randn(self.n, self.m) * np.sqrt(2. / self.m)  # He initialization
-            elif activation in ["sigmoid", "tanh"]:
+            elif self.activation_name in ["sigmoid", "tanh"]:
                 self.W = np.random.randn(self.n, self.m) * np.sqrt(1. / self.m)  # Xavier/Glorot initialization
             else:
                 self.W = np.random.randn(self.n, self.m) * 0.01  # Slightly larger fallback
@@ -133,9 +133,9 @@ class Dense:
         self.m_b = np.zeros_like(self.b)
 
         self.activation_params = activation_params or {}
-        if activation not in activations.activation_functions:
+        if self.activation_name not in activations.activation_functions:
             raise ValueError(f"Activation function {activation} not recognized. Must be one of {list(activations.activation_functions.keys())}")
-        self.activation = activations.activation_functions[activation](**self.activation_params)
+        self.activation = activations.activation_functions[self.activation_name](**self.activation_params)
         self.x = None
         self.z = None
         self.grad_W = None
@@ -212,6 +212,8 @@ class Dropout:
         self.mask = None
         self.has_dims = False  # Dropout does not have fixed input/output dimensions
         self.training = True  # Default to training mode
+        self.activation = activations.Identity()
+        self.activation_name = "identity"
 
     def forward(self, x):
         if self.training:
@@ -239,6 +241,7 @@ class FeedForward:
     # class to combine several layers and pass input to first layer then all the way through
     def __init__(self, *layers, training=True):
         self.layers = layers
+        self.last_layer = layers[-1]
         self.t = 1  # batch-level counter
         self.training = training
         # validate that dimension match up
@@ -246,6 +249,8 @@ class FeedForward:
         last_dim_layer = None
         last_index = None
         for i, layer in enumerate(layers):
+            if getattr(layer, "activation_name", "identity") == "softmax" and layer != self.last_layer:
+                raise ValueError("Softmax can only be activation in final layer")
             if getattr(layer, 'has_dims', False):
                 if last_dim_layer is not None:
                     if layer.m != last_dim_layer.n:
@@ -373,21 +378,28 @@ class FeedForward:
         rng = np.random.default_rng(random_state)
         # get the number of neurons in the output layer
         output_size = self.layers[-1].n
+        final_activation = self.layers[-1].activation_name
+        if final_activation == "softmax":
+            self.from_logits = False
+        else:
+            self.from_logits = True
         # set up loss function. If none is given, use mse or softmax based on output size
         if loss_fn is None:
             if output_size == 1:
-                loss_fn = loss.mse
+                self.loss_fn = loss.MSE()
                 print("No loss function specified, using mse, warning: this may not be appropriate for classification")
             else:   
-                loss_fn = loss.SoftmaxCrossEntropyLoss()
+                self.loss_fn = loss.SoftmaxCrossEntropyLoss(from_logits=self.from_logits)
                 print("No loss function specified, using categorical_cross_entropy, warning: this may not be appropriate for regression")
         elif isinstance(loss_fn, str):
             #if a string is given, look up in loss_functions
-            if loss_fn in loss.loss_functions:
-                loss_fn = loss.loss_functions[loss_fn]
+            if loss_fn in loss.loss_functions: 
+                self.loss_fn = loss.loss_functions[loss_fn](self.from_logits)
             else:
-                raise ValueError(f"Loss function {loss_fn} not recognized. Must be a callable or one of {list(loss.loss_functions.keys())}")
-        elif not isinstance(loss_fn, loss.Loss):
+                raise ValueError(f"Loss function {loss_fn} not recognized. Must be a Loss class or one of {list(loss.loss_functions.keys())}")
+        elif isinstance(loss_fn, loss.Loss):
+            self.loss_fn = loss_fn
+        else:
             # if not a string or loss function,  raise error
             raise ValueError("Loss must be a Loss class or a string key in loss_functions")
         if metric is None:
@@ -474,13 +486,13 @@ class FeedForward:
                 y_pred = self.forward(X_batch)
                 # compute loss
                 
-                loss_batch = loss_fn.forward(y_pred, y_batch)
+                loss_batch = self.loss_fn.forward(y_pred, y_batch)
                 epoch_loss += loss_batch * (end - start)  # weighted sum for averaging later
 
                 
                 
                 # backward pass
-                loss_grad = loss_fn.backward(y_pred, y_batch)
+                loss_grad = self.loss_fn.backward(y_pred, y_batch)
                 self.backward(loss_grad)
                 # clip gradients if requested
                 if clip_value is not None:
@@ -521,7 +533,7 @@ class FeedForward:
             else:
                 y_test_pred = self.predict(X_val)
                 val_metric = metric(y_test_pred, y_val)
-                val_loss = loss_fn.forward(y_test_pred, y_val)
+                val_loss = self.loss_fn.forward(y_test_pred, y_val)
                 history["val_loss"].append((epoch+last_epoch,val_loss))
                 history[f"val_{metric_name}"].append((epoch+last_epoch,val_metric))
                 print(f" Validation Loss: {val_loss:.4f}, Validation {metric_name} {val_metric:.4f}")
