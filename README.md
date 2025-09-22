@@ -20,10 +20,11 @@ pip install -e .
 ```
 
 #### Modules (all in my_nn)
-1.  activations.py : contains all activation functions used. All part of a class called Activation. Note that softmax is not directly implemented as an activation function. Multiclass classification has a loss function that combines softmax with categorical cross entropy
-   1. loss.py : contains loss functions used. All in a class called Loss.
-   1. metrics.py : contains metrics used either directly to be observed in training or after training
-   1. nn.py : contains some helper functions, the Dense() class, the Dropout() class and a class called FeedForward() used to create a network.
+1.  `activations.py` : contains all activation functions used. All part of a class called Activation. Note that softmax is not directly implemented as an activation function. Multiclass classification has a loss function that combines softmax with categorical cross entropy
+   1. `loss.py` : contains loss functions used. All in a class called Loss.
+   1. `metrics.py` : contains metrics used either directly to be observed in training or after training
+   1. `nn.py` : contains some helper functions, the Dense() class, the Dropout() class and a class called FeedForward() used to create a network.
+   1. `data/sample_data.py` : function to generate/save/plot some sample data to test the neural network on
 
 #### Usage
 To create a new dense layer, used Dense(number of inputs, number of outputs, name of activation function). 
