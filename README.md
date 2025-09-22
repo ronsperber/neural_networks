@@ -1,4 +1,4 @@
-# my_nn: A Simple Neural Network Implementation from Scratch with NumPy
+## my_nn: A Simple Neural Network Implementation from Scratch with NumPy
 This library implements feedforward neural networks using only NumPy, for learning and experimentation with classification and regression tasks
 ### Setup
 
@@ -31,7 +31,7 @@ To create a new dense layer, use Dense(number of inputs, number of outputs, name
 Example:
 First the imports
 ```python
-from my_nn.nn import Dense, Dropout, FeedForward
+from my_nn.nn import Dense, Dropout, FeedForward, BatchNorm
 ```
 
 ```python
@@ -43,6 +43,11 @@ Example:
 ```python
 dropout = Dropout(0.2)
 ```
+To create a Batch Normalization layer use BatchNorm(num_features)
+Example:
+```python
+batchnorm = BatchNorm(10)
+```
 
 To create a network with layer_1, layer_2,..., layer_n: model = FeedForward(layer_1, layer_2, ..., layer_n)
 Example:
@@ -51,7 +56,7 @@ dense_1 = Dense(4 ,10, activation="relu")
 dense_2 = Dense(10, 1, activation="sigmoid")
 model = FeedForward(dense_1, dense_2)
 ```
-   
+
 #### training a model
 For now, both the feature data and target must be numpy arrays.
 
@@ -98,4 +103,5 @@ The `notebooks` folder contains some sample notebooks to see how this works
 - `binary_pl.ipynb` : Runs a model on a data set with binary classification where the true decision boundary is an absolute value graph.
 - `multiclass.ipynb` : Runs a model on a data set with multiclass classification where the decision boundaries are 2 branches of a hyperbola
 - `regression.ipynb` : Runs a model on a data set with a regression, where the true function is z = x<sup>2</sup> + y<sup>2</sup>
+- `multiclass_batch_normalization.ipynb` : Runs the multiclass classification models using SGD or Adam and looking at the effect of adding batch normalization layers
 
