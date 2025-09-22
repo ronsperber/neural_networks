@@ -80,11 +80,117 @@ def train_test_split(X,y, test_size=None, train_size=None, shuffle_data=True, ra
         return (X_train, X_test, y_train, y_test)
     raise ValueError("Must give a test size or train size")
 
+class BatchNorm:
+    def __init__(self, num_features, gamma=None, beta=None, eps=1e-5, momentum=0.9):
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        # Create attributes like a Dense layer of size (num_features,num_features)
+        # this is to make sure sizes match up properly when creating a model
+        self.has_dims = True
+        self.m = self.n = num_features
+
+        # Initialize gamma and beta if not provided
+        self.gamma = gamma if gamma is not None else np.ones(num_features)
+        self.beta = beta if beta is not None else np.zeros(num_features)
+
+        # Running estimates for inference
+        self.running_mean = np.zeros(num_features)
+        self.running_var = np.ones(num_features)
+        self.v_gamma = np.zeros_like(self.gamma)   # velocity for Adam
+        self.v_beta = np.zeros_like(self.beta)
+        self.m_gamma= np.zeros_like(self.beta)   # first moment for Adam/momentum
+        self.m_beta = np.zeros_like(self.beta)
+        # for consistency across layers
+        self.activation = activations.Identity()
+        self.activation_name = "identity"
+        self.training = True
+    
+    def forward(self, x):
+        if self.training:
+            mu = np.mean(x, axis=0, keepdims=True)
+            var = np.var(x, axis=0, keepdims=True)
+            std = np.sqrt(var + self.eps)
+            x_norm = (x - mu)/std
+            self.batch_size = x.shape[0]
+            self.centered_x = x - mu
+            self.xn = x_norm
+            self.mu = mu
+            self.var = var
+            self.std = np.sqrt(self.var + self.eps)
+            self.running_mean = self.momentum * self.running_mean + (1 - self.momentum) * mu
+            self.running_var = self.momentum * self.running_var + (1 - self.momentum) * var
+        else:
+            xc = x - self.running_mean
+            x_norm = xc / (np.sqrt(self.running_var + self.eps))
+        return self.gamma * x_norm + self.beta
+    
+    def backward(self, grad_output):
+         # grads for gamma and beta
+        self.grad_beta = np.sum(grad_output, axis=0)
+        self.grad_gamma = np.sum(self.xn * grad_output, axis=0)
+
+        # gradient wrt normalized input
+        dxn = grad_output * self.gamma
+
+        # number of samples
+        N = self.batch_size
+
+        # formula for dx
+        dx = (1. / N) * (1. / self.std) * (
+            N * dxn
+            - np.sum(dxn, axis=0)
+            - self.xn * np.sum(dxn * self.xn, axis=0)
+        )
+
+        return dx
+    
+    def get_params_and_grads(self):
+        params_grads = []
+        if self.grad_gamma is not None:
+            params_grads.append((self.gamma, self.grad_gamma))
+        if self.grad_beta is not None:
+            params_grads.append((self.beta, self.grad_beta))
+        return params_grads
+    
+    def set_training(self, mode: bool):
+        self.training = mode
+
+    def update_weights(self, learning_rate, optimizer="sgd", t=1, beta1=0.9, beta2=0.999, epsilon=1e-8):
+        # possible optimizers:
+        # sgd : standard gradient descent
+        # momentum : momentum optimization
+        # adam : adam optimization
+        if optimizer == "sgd":
+            self.gamma -= learning_rate * self.grad_gamma
+            self.beta -= learning_rate * self.grad_beta
+
+        elif optimizer == "momentum":
+            self.m_gamma = beta1 * self.m_gamma + (1 - beta1) * self.grad_gamma
+            self.m_beta  = beta1 * self.m_beta + (1 - beta1) * self.grad_beta
+            self.gamma -= learning_rate * self.m_gamma
+            self.beta -= learning_rate * self.m_beta
+
+        elif optimizer == "adam":
+            self.m_gamma= beta1 * self.m_gamma + (1 - beta1) * self.grad_gamma
+            self.m_beta = beta1 * self.m_beta + (1 - beta1) * self.grad_beta
+            self.v_gamma = beta2 * self.v_gamma + (1 - beta2) * (self.grad_gamma ** 2)
+            self.v_beta = beta2 * self.v_beta + (1 - beta2) * (self.grad_beta ** 2)
+
+            m_hat_gamma = self.m_gamma / (1 - beta1**t)
+            m_hat_beta = self.m_beta / (1 - beta1**t)
+            v_hat_gamma = self.v_gamma / (1 - beta2**t)
+            v_hat_beta = self.v_beta / (1 - beta2**t)
+
+            self.gamma -= learning_rate * m_hat_gamma / (np.sqrt(v_hat_gamma) + epsilon)
+            self.beta -= learning_rate * m_hat_beta / (np.sqrt(v_hat_beta) + epsilon)
+
+
+
+
 class Dense:
     def __init__(self, num_inputs:int, num_neurons:int, activation="identity", weights=None, bias = None, activation_params = None):
         """
-        simple dense layer for feed-forward
-        will need to eventually add code for backpropogation
         Arguments
         ---------
         num_inputs:    int
