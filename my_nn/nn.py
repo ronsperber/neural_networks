@@ -429,42 +429,45 @@ class FeedForward:
         optimizer_config=None
     ):
         """
-        fit model based on X,y
-        Parameters
-        ----------
-        X : np.array | pd.DataFrame | list
-            features used to train
-        y : np.array | pd.DataFrame | pd.Series | list
-            target used to train
-        epochs : int
-            number of epochs used in training
-        loss : string or callable
-            loss function to use in training
-            if string, must be a key in activations.loss_functions
-        verbose : boolean
-            whether or not to print intermediate losses during epochs
-        learning_rate: float
-            learning rate to use when training
-        metric : string or callable
-            metric to use to evaluate accuracy during training
-            if string, must be a key in metrics_dict
-        batch_size : int
-            number of samples in a batch
-        print_every : int
-            how often to print batch loss
-        val_size : int or float
-            size of set to consider as validation data. When this is a number in (0,1)
-            this is a fraction of the set, otherwise a number to be used
-        val_set: (array,array)
-            A pair (X_val,y_val) to be used for validation
-        clip_value: float
-            if not None, clip gradients to be in the range [-clip_value, clip_value]
-        random_state: int
-            random state to use when shuffling data for train/test split
-        optimizer : string
-            description of what optimizer to use for gradient descent
-        optimizer_configs : Dict
-            dictionary of optional configuration values for the optimizers
+Fit model based on X, y.
+
+Parameters
+----------
+X : np.ndarray, pd.DataFrame, or list
+    Features used to train the model.
+y : np.ndarray, pd.DataFrame, pd.Series, or list
+    Target values used to train the model.
+epochs : int
+    Number of epochs to use during training.
+loss : str or callable
+    Loss function to use during training. If a string, must be a key in `activations.loss_functions`.
+verbose : bool
+    Whether to print intermediate losses during training.
+learning_rate : float
+    Learning rate to use for gradient descent.
+metric : str, callable, or list of str or callable
+    Metric(s) to evaluate during training. Can be:
+      - A single string key referring to a built-in metric in `metrics_dict`,
+      - A single callable taking `(y_pred, y_true)` and returning a scalar,
+      - A list containing any combination of strings and callables.
+batch_size : int
+    Number of samples per batch.
+print_every : int
+    Print training loss and metrics every N batches (only applies if `verbose=True`).
+val_size : int or float
+    Size of the validation set. If a float in (0,1), treated as a fraction of the dataset; otherwise, treated as the number of samples.
+val_set : tuple of (array-like, array-like)
+    Pair `(X_val, y_val)` to be used for validation.
+clip_value : float, optional
+    If provided, gradients are clipped to the range [-clip_value, clip_value].
+random_state : int, optional
+    Random state used when shuffling data for train/validation split.
+optimizer : str
+    Optimizer to use for gradient descent.
+optimizer_configs : dict, optional
+    Dictionary of optional configuration values for the optimizer.
+"""
+
         """
         optimizer = optimizer.lower()
         if optimizer not in ["sgd", "momentum", "adam"]:
