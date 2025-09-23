@@ -3,3 +3,4 @@
 .vscode/*.* 
 sample_nn.*
 my_nn.egg-info
+scratch_notebooks
