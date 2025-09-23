@@ -410,6 +410,7 @@ class FeedForward:
                 layer.set_training(mode)
             elif hasattr(layer, 'training'):
                 layer.training = mode
+
     def fit(
         self,
         X,
@@ -426,49 +427,57 @@ class FeedForward:
         clip_value=None,
         random_state=None,
         optimizer="sgd",
-        optimizer_config=None
+        optimizer_config=None,
+        lambda_l1 = 0.0,
+        lambda_l2 = 0.0
     ):
         """
-Fit model based on X, y.
+        Fit model based on X, y.
 
-Parameters
-----------
-X : np.ndarray, pd.DataFrame, or list
-    Features used to train the model.
-y : np.ndarray, pd.DataFrame, pd.Series, or list
-    Target values used to train the model.
-epochs : int
-    Number of epochs to use during training.
-loss : str or callable
-    Loss function to use during training. If a string, must be a key in `activations.loss_functions`.
-verbose : bool
-    Whether to print intermediate losses during training.
-learning_rate : float
-    Learning rate to use for gradient descent.
-metric : str, callable, or list of str or callable
-    Metric(s) to evaluate during training. Can be:
-      - A single string key referring to a built-in metric in `metrics_dict`,
-      - A single callable taking `(y_pred, y_true)` and returning a scalar,
-      - A list containing any combination of strings and callables.
-batch_size : int
-    Number of samples per batch.
-print_every : int
-    Print training loss and metrics every N batches (only applies if `verbose=True`).
-val_size : int or float
-    Size of the validation set. If a float in (0,1), treated as a fraction of the dataset; otherwise, treated as the number of samples.
-val_set : tuple of (array-like, array-like)
-    Pair `(X_val, y_val)` to be used for validation.
-clip_value : float, optional
-    If provided, gradients are clipped to the range [-clip_value, clip_value].
-random_state : int, optional
-    Random state used when shuffling data for train/validation split.
-optimizer : str
-    Optimizer to use for gradient descent.
-optimizer_configs : dict, optional
-    Dictionary of optional configuration values for the optimizer.
-"""
-
+        Parameters
+        ----------
+        X : np.ndarray, pd.DataFrame, or list
+            Features used to train the model.
+        y : np.ndarray, pd.DataFrame, pd.Series, or list
+            Target values used to train the model.
+        epochs : int
+            Number of epochs to use during training.
+        loss_fn : str or loss.Loss
+            Loss function to use during training. If a string, must be a key in `loss.loss_functions`.
+        verbose : bool
+            Whether to print intermediate losses during training.
+        learning_rate : float
+            Learning rate to use for gradient descent.
+        metric : str, callable, or list of str or callable
+            Metric(s) to evaluate during training. Can be:
+             - A single string key referring to a built-in metric in `metrics.metrics_dict`,
+             - A single callable taking `(y_pred, y_true)` and returning a scalar,
+             - A list containing any combination of strings and callables.
+        batch_size : int
+            Number of samples per batch.
+        print_every : int
+            Print training loss and metrics every N batches (only applies if `verbose=True`).
+        val_size : int or float
+            Size of the validation set. If a float in (0,1), treated as a fraction of the dataset; otherwise, treated as the number of samples.
+        val_set : tuple of (array-like, array-like)
+            Pair `(X_val, y_val)` to be used for validation.
+        clip_value : float, optional
+            If provided, gradients are clipped to the range [-clip_value, clip_value].
+        random_state : int, optional
+            Random state used when shuffling data for train/validation split.
+        optimizer : str
+            Optimizer to use for gradient descent.
+        optimizer_configs : dict, optional
+            Dictionary of optional configuration values for the optimizer.
+        lambda_l1 : float, optional
+            coeffecient for L1 regularization (sum of absolute value of weights)
+            Default is 0.0 (no L1 regularization)
+        lambda_l2 : float, optional
+            coefficient for L2 regularization (sum of squares of weights)
+            Default is 0.0 (no L2 regularization)
+        
         """
+
         optimizer = optimizer.lower()
         if optimizer not in ["sgd", "momentum", "adam"]:
             raise ValueError(f"{optimizer} is not a valid optimizer. Choose one of sgd, momentum, or adam")
@@ -613,6 +622,19 @@ optimizer_configs : dict, optional
                 # compute loss
                 
                 loss_batch = self.loss_fn.forward(y_pred, y_batch)
+                # add regularization loss if it exists
+                if lambda_l1 > 0 or lambda_l2 >0:
+                    reg_loss = 0.0
+                    for layer in self.layers:
+                        for attr in ["W","kernel"]:
+                            if hasattr(layer, attr):
+                                param = getattr(layer,attr)
+                                if lambda_l1 > 0:
+                                    reg_loss += (lambda_l1 * np.sum(np.abs(param)))/(end - start)
+                                if lambda_l2 > 0:
+                                    reg_loss += (0.5 * lambda_l2 * np.sum(param**2))/(end - start)
+                    loss_batch += reg_loss
+
                 epoch_loss += loss_batch * (end - start)  # weighted sum for averaging later
 
                 
@@ -620,6 +642,16 @@ optimizer_configs : dict, optional
                 # backward pass
                 loss_grad = self.loss_fn.backward(y_pred, y_batch)
                 self.backward(loss_grad)
+                # adjust gradients if there is regularization.
+                for layer in self.layers:
+                    for attr in ["W", "kernel"]:
+                        if hasattr(layer, attr):
+                            param = getattr(layer, attr)
+                            grad = getattr(layer, "grad_" + attr)
+                            if lambda_l1 > 0:
+                                grad += lambda_l1 * np.sign(param) / (end - start)
+                            if lambda_l2 > 0:
+                                grad +=  lambda_l2 * param /(end - start)
                 # clip gradients if requested
                 if clip_value is not None:
                     for layer in self.layers:
@@ -675,6 +707,26 @@ optimizer_configs : dict, optional
             plot_history(self.history, *keys)
             
     def predict(self, X):
+        """
+        Predict target values using the trained FeedForward model.
+
+        Parameters
+        ----------
+        X : np.ndarray or pd.DataFrame, shape (n_samples, n_features)
+            Features for which to predict target values.
+
+        Returns
+        -------
+        np.ndarray, shape (n_samples, 1) or (n_samples, n_outputs)
+            Predicted values for each input sample. For models with a single output neuron, returns a 2D array with shape (n_samples, 1).
+            For multi-output or multi-label models, returns a 2D array with one column per output.
+
+        Notes
+        -----
+        - The model must be trained (via `.fit()`) before calling `.predict()`.
+        - Input features are assumed to be in the same order and scaling as used during training.
+        """
+
         # save current training state
         current_training = self.training
         # propagate to layers
