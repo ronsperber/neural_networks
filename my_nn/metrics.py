@@ -34,21 +34,24 @@ def binary_accuracy(y_pred, y_true):
 
 
 
-def accuracy(y_pred, y_true):
+def accuracy(y_pred, y_true, multilabel_mode="elementwise"):
     """
-    Compute accuracy for binary or multi-class classification.
-
+    Compute accuracy for binary, multi-class, or multi-label classification.
+    
     Parameters
     ----------
     y_pred : np.ndarray
-        Predicted values. Shape (batch_size,) for binary, (batch_size, num_classes) for multi-class.
+        Predictions.
+        Shape (batch,) or (batch,1) for binary (sigmoid).
+        Shape (batch,num_classes) for multi-class (softmax).
+        Shape (batch,num_labels) for multi-label (sigmoid per label).
     y_true : np.ndarray
-        True values. Shape (batch_size,) integer labels.
-
-    Returns
-    -------
-    float
-        Accuracy score.
+        Ground truth labels.
+        Shape matches y_pred for binary and multi-label.
+        Shape (batch,) for multi-class (class indices).
+    multilabel_mode : {"elementwise","subset"}, default="elementwise"
+        - "elementwise": fraction of correctly predicted labels across all samples.
+        - "subset": fraction of samples where *all* labels are exactly correct.
     """
     y_pred = np.asarray(y_pred)
 
@@ -57,10 +60,19 @@ def accuracy(y_pred, y_true):
         y_pred_binary = np.round(y_pred.ravel())
         return np.mean(y_pred_binary == y_true.ravel())
     
+    # multi-label case
+    elif y_true.ndim == 2 and set(np.unique(y_true)) <= {0,1}:
+        y_pred_binary = (y_pred >= 0.5).astype(int)
+        if multilabel_mode == "subset":
+            return np.mean(np.all(y_pred_binary == y_true, axis=1))
+        else:  # elementwise
+            return np.mean(y_pred_binary == y_true)
+
     # multi-class case
     else:
         y_pred_classes = np.argmax(y_pred, axis=1)
         return np.mean(y_pred_classes == y_true.ravel())
+
 
 def categorical_accuracy(y_pred, y_true):
     """
