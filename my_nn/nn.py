@@ -511,30 +511,47 @@ class FeedForward:
         if metric is None:
             # if no metric is given, use mse for regression and accuracy for classification
             if output_size == 1:
-                metric = metrics.mse
+                metric = [metrics.mse]
             else:   
-                metric = metrics.accuracy
-        elif isinstance(metric, str):
-            # if a string is given, look up in metrics_dict
-            if metric in metrics.metrics_dict:
-                metric = metrics.metrics_dict[metric]
-            else:
-                raise ValueError(f"Metric {metric} not recognized. Must be a callable or one of {list(metrics.metrics_dict.keys())}")
-        elif not callable(metric):
-            raise ValueError("Metric must be a callable or a string key in metrics_dict")
-        # set the name of the metric for history tracking
-        metric_name = metric.__name__
+                metric = [metrics.accuracy]
+        metric_names = []
+        if not isinstance(metric, list):
+            metric_list = [metric]
+        else:
+            metric_list = metric
+        for (i,metric) in enumerate(metric_list):
+            if isinstance(metric, str):
+             # if a string is given, look up in metrics_dict
+                if metric in metrics.metrics_dict:
+                    metric = metrics.metrics_dict[metric]
+                    metric_list[i] = metric
+                else:
+                    raise ValueError(f"Metric {metric} not recognized. Must be a callable or one of {list(metrics.metrics_dict.keys())}")
+            elif not callable(metric):
+                raise ValueError("Metric must be a callable or a string key in metrics_dict")
+            # add the name of the metric for history tracking
+            metric_names.append(metric.__name__)
+        metric_dict = dict(zip(metric_names, metric_list))
         # create history if it doesn't exist yet 
         if self.history is None:
-            history = {"loss":[], metric_name:[]}
+            train_history = {metric_name:[] for metric_name in metric_names}
+            train_history["loss"] = []
+            val_history={}
             if val_set is not None or val_size is not None:
-                history["val_loss"] = []
-                history[f"val_{metric_name}"] = []
+                val_history = {f"val_{metric_name}":[] for metric_name in metric_names}
+                val_history["val_loss"] = []
+            history = {**train_history, **val_history}
             self.history = history
             # no previous training occurred so the history can start with the epoch count
             last_epoch = 0
         else:
             history = self.history
+            # add history keys for any new metrics
+            for metric_name in metric_dict:
+                if metric_name not in history:
+                    history[metric_name] = []
+                    if val_set is not None or val_size is not None:
+                        history[f"val_{metric_name}"] = []
             # we want to increase the epochs as we go
             last_epoch = history["loss"][-1][0]
         # make sure X,y are arrays for training. 
@@ -622,27 +639,28 @@ class FeedForward:
                     # Optional: print loss every print_every batches
                     if batch_idx % print_every == 0:
                         running_ave_loss = epoch_loss/end
-                        print(f"Epoch {epoch}, Batch {batch_idx+1}/{num_batches}, Loss: {running_ave_loss:.4f}")
+                        print(f"Epoch {epoch}/{epochs}, Batch {batch_idx+1}/{num_batches}, Loss: {running_ave_loss:.4f}")
             # at the end of the epoch print out the epoch loss/metric
-            metric_value = metric(self.predict(X_train), y_train)
-
-
-            # Average loss over epoch
+            train_metric_values ={name: func(self.predict(X_train), y_train) for name, func in metric_dict.items()}
+            for name, val in train_metric_values.items():
+                history[name].append((epoch+last_epoch,val))
             epoch_loss /= num_samples
             history["loss"].append((epoch+last_epoch,epoch_loss))
-            history[metric_name].append((epoch+last_epoch,metric_value))
-            print(f"Epoch {epoch} complete. Average Loss: {epoch_loss:.4f} , {metric_name} {metric_value:.4f}",end=" - ")
+            train_metrics_str = ", ".join(f"{name}: {val:.4f}" for name, val in train_metric_values.items())
+            print(f"Epoch {epoch}/{epochs}: loss: {epoch_loss:.4f}, {train_metrics_str}", end = " - ")
             # if no validation set we stop
             if not use_validate:
                 print("\n")
             #if there is we compute the loss/accuracy on the validation set from that epoch and report it
             else:
                 y_test_pred = self.predict(X_val)
-                val_metric = metric(y_test_pred, y_val)
+                val_metric_values = {name : func(y_test_pred, y_val) for name, func in metric_dict.items()}
+                for name, val in val_metric_values.items():
+                    history[f"val_{name}"].append((epoch + last_epoch,val))
                 val_loss = self.loss_fn.forward(y_test_pred, y_val)
                 history["val_loss"].append((epoch+last_epoch,val_loss))
-                history[f"val_{metric_name}"].append((epoch+last_epoch,val_metric))
-                print(f" Validation Loss: {val_loss:.4f}, Validation {metric_name} {val_metric:.4f}")
+                val_metrics_str = ", ".join(f"{name}: {val:.4f}" for name, val in val_metric_values.items())
+                print(f"Validation set: loss: {val_loss:.4f}, {val_metrics_str}")
 
         self.history = history
         return copy.deepcopy(history)
