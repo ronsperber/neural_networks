@@ -127,7 +127,7 @@ class BatchNorm(Layer):
                  beta: Optional[float]=None,
                  eps: float=1e-5,
                  momentum: float=0.9):
-        super.__init__(has_dims=True, m=num_features, n=num_features)
+        super().__init__(has_dims=True, m=num_features, n=num_features)
         # using m,n num_features so it will correctly sit between dense layers
         self.num_features = num_features
         self.eps = eps
@@ -627,12 +627,19 @@ class FeedForward:
             last_epoch = 0
         else:
             history = self.history
-            # add history keys for any new metrics
+            if val_set is not None or val_size is not None:
+                # if there was not a previous validation set add val_loss
+                if "val_loss" not in history:
+                    history["val_loss"] = []
+            # add history keys for any new metrics 
             for metric_name in metric_dict:
                 if metric_name not in history:
                     history[metric_name] = []
-                    if val_set is not None or val_size is not None:
-                        history[f"val_{metric_name}"] = []
+                if val_set is not None or val_size is not None:
+                    # add the keys for validation set if they didn't exist too
+                    val_metric_name = f"val_{metric_name}"
+                    if val_metric_name not in history:
+                        history[val_metric_name] = []
             # we want to increase the epochs as we go
             last_epoch = history["loss"][-1][0]
         # make sure X,y are arrays for training. 
