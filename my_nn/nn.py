@@ -240,7 +240,7 @@ class BatchNorm(Layer):
 
 
 
-class Dense:
+class Dense(Layer):
     def __init__(self,
                  num_inputs: int,
                  num_neurons: int,
@@ -375,7 +375,7 @@ class Dense:
             self.b -= learning_rate * m_hat_b / (np.sqrt(v_hat_b) + epsilon)
 
 
-class Dropout:
+class Dropout(Layer):
     def __init__(self, drop_prob:float):
         super.__init__()
         self.drop_prob = drop_prob
@@ -406,6 +406,9 @@ class Dropout:
         # Dropout has no weights to update
         # **kwargs is there because the feed forward will pass arguments for the dense layer
         pass
+    
+    def set_training(self, mode: bool)
+        self.training = mode
 
         
 class FeedForward:
