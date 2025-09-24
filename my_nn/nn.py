@@ -613,12 +613,14 @@ class FeedForward:
             # add the name of the metric for history tracking
             metric_names.append(metric.__name__)
         metric_dict = dict(zip(metric_names, metric_list))
+        # create flag to see if validation set exists
+        has_val = val_size is not None or val_set is not None
         # create history if it doesn't exist yet 
         if self.history is None:
             train_history = {metric_name:[] for metric_name in metric_names}
             train_history["loss"] = []
             val_history={}
-            if val_set is not None or val_size is not None:
+            if has_val:
                 val_history = {f"val_{metric_name}":[] for metric_name in metric_names}
                 val_history["val_loss"] = []
             history = {**train_history, **val_history}
@@ -627,7 +629,7 @@ class FeedForward:
             last_epoch = 0
         else:
             history = self.history
-            if val_set is not None or val_size is not None:
+            if has_val:
                 # if there was not a previous validation set add val_loss
                 if "val_loss" not in history:
                     history["val_loss"] = []
@@ -635,11 +637,9 @@ class FeedForward:
             for metric_name in metric_dict:
                 if metric_name not in history:
                     history[metric_name] = []
-                if val_set is not None or val_size is not None:
-                    # add the keys for validation set if they didn't exist too
-                    val_metric_name = f"val_{metric_name}"
-                    if val_metric_name not in history:
-                        history[val_metric_name] = []
+                if has_val and f"val_{metric_name}" not in history:
+                    # if we have validation set and missing val_metric add the key to history
+                    history[f"val_{metric_name}"] = []
             # we want to increase the epochs as we go
             last_epoch = history["loss"][-1][0]
         # make sure X,y are arrays for training. 
