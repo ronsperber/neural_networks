@@ -244,7 +244,7 @@ class Dense(Layer):
     def __init__(self,
                  num_inputs: int,
                  num_neurons: int,
-                 activation: str="identity", 
+                 activation: Union[str, activations.Activation] ="identity", 
                  weights: Optional[np.ndarray]=None,
                  bias: Optional[np.ndarray]=None,
                  activation_params:Optional[List]=None):
@@ -255,7 +255,7 @@ class Dense(Layer):
             number of inputs to the layer
         num_neurons:   int
             number of neurons in the layer
-        activation:    string
+        activation:    string or Activation class
             name of activation function (default is identity)
         weights:       array of size num_inputs x num_neurons
             optional initial weights to use. Randomized if not
@@ -269,7 +269,19 @@ class Dense(Layer):
         if num_neurons <=0:
             raise ValueError("Number of neurons must be positive")
         super().__init__(has_dims=True, m=num_inputs, n=num_neurons)
-        self.activation_name: str = activation.lower()
+        self.activation_params = activation_params or {}
+        if isinstance(activation, str):
+            activation = activation.lower()
+            if activation in activations.activation_functions:
+                self.activation_name = activation
+                self.activation: activations.Activation = activations.activation_functions[activation](**activation_params)
+            else:
+                raise ValueError(f"Activation function {activation} not recognized. Must be one of {list(activations.activation_functions.keys())}")
+        elif isinstance(activation, activations.Activation):
+            self.activation_name = type(activation).__name__
+            self.activation = activation
+        else:
+            raise TypeError("Activation must be string or Activation")
         if weights is not None:
             self.W = weights
         else:
@@ -294,11 +306,6 @@ class Dense(Layer):
         self.m_W = np.zeros_like(self.W)   # first moment for Adam
         self.m_b = np.zeros_like(self.b)
         self.regularizable_params = ["W"]
-
-        self.activation_params = activation_params or {}
-        if self.activation_name not in activations.activation_functions:
-            raise ValueError(f"Activation function {activation} not recognized. Must be one of {list(activations.activation_functions.keys())}")
-        self.activation: activations.Activation = activations.activation_functions[self.activation_name](**self.activation_params)
         self.x = None
         self.z = None
         self.grad_W = None
