@@ -407,7 +407,7 @@ class Dropout(Layer):
         # **kwargs is there because the feed forward will pass arguments for the dense layer
         pass
     
-    def set_training(self, mode: bool)
+    def set_training(self, mode: bool):
         self.training = mode
 
         
