@@ -4,14 +4,14 @@ import numpy as np
 # Base class for loss functions
 class Loss(ABC):
     @abstractmethod
-    def forward(self, y_pred, y_true):
+    def forward(self, y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
-    def backward(self, y_pred, y_true):
+    def backward(self, y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
         pass
 
-    def __call__(self, y_pred, y_true):
+    def __call__(self, y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray:
         return self.forward(y_pred, y_true)
     
 class SoftmaxCrossEntropyLoss(Loss):
@@ -47,7 +47,7 @@ class SoftmaxCrossEntropyLoss(Loss):
         return loss
 
 
-    def backward(self, logits, y_true):
+    def backward(self, y_pred, y_true):
         """
         Gradient of loss w.r.t logits
         """

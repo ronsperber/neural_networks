@@ -4,12 +4,52 @@ from . import loss
 from . import metrics
 import copy
 import matplotlib.pyplot as plt
+from abc import ABC, abstractmethod
+from typing import List, Optional, Union, Any, Callable , Dict
+from pandas import DataFrame, Series
 
-def one_hot_encode(y):
+
+class Layer(ABC):
+    regularizable_params: Optional[List[str]]
+
+    def __init__(self, has_dims: bool=False, m:Optional[int]=None, n:Optional[int]=None):
+        self.regularizable_params = []
+        self.m = m
+        self.n = n
+        self.has_dims = has_dims
+
+    @abstractmethod
+    def forward(self, X: np.ndarray) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def backward(self, grad_output: np.ndarray) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def get_params_and_grads(self):
+        """Return list of (param, grad) tuples"""
+        pass
+
+    @abstractmethod
+    def set_training(self, training: bool):
+        pass
+
+    @abstractmethod
+    def update_weights(self, **kwargs):
+        pass
+
+
+def one_hot_encode(y:np.ndarray) -> np.ndarray:
      # use np.eye() to one hot encode a vector
      return np.eye(y.max() + 1)[y]
 
-def train_test_split(X,y, test_size=None, train_size=None, shuffle_data=True, random_state=None):
+def train_test_split(X: np.ndarray,
+                     y: np.ndarray, 
+                     test_size: Optional[Union[int, float]]=None,
+                     train_size: Optional[Union[int, float]]=None,
+                     shuffle_data: bool=True,
+                     random_state=None):
     """ 
     Splitting X,y into train and test sets
     Parameters
@@ -80,15 +120,19 @@ def train_test_split(X,y, test_size=None, train_size=None, shuffle_data=True, ra
         return (X_train, X_test, y_train, y_test)
     raise ValueError("Must give a test size or train size")
 
-class BatchNorm:
-    def __init__(self, num_features, gamma=None, beta=None, eps=1e-5, momentum=0.9):
+class BatchNorm(Layer):
+    def __init__(self,
+                 num_features :int, 
+                 gamma: Optional[float]=None, 
+                 beta: Optional[float]=None,
+                 eps: float=1e-5,
+                 momentum: float=0.9):
+        super.__init__(has_dims=True, m=num_features, n=num_features)
+        # using m,n num_features so it will correctly sit between dense layers
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
-        # Create attributes like a Dense layer of size (num_features,num_features)
-        # this is to make sure sizes match up properly when creating a model
-        self.has_dims = True
-        self.m = self.n = num_features
+        
 
         # Initialize gamma and beta if not provided
         self.gamma = gamma if gamma is not None else np.ones(num_features)
@@ -105,9 +149,9 @@ class BatchNorm:
         self.activation = activations.Identity()
         self.activation_name = "identity"
         self.training = True
-        self.regularizable_params = []
+        
     
-    def forward(self, x):
+    def forward(self, x:np.ndarray) -> np.ndarray:
         if self.training:
             mu = np.mean(x, axis=0, keepdims=True)
             var = np.var(x, axis=0, keepdims=True)
@@ -126,7 +170,7 @@ class BatchNorm:
             x_norm = xc / (np.sqrt(self.running_var + self.eps))
         return self.gamma * x_norm + self.beta
     
-    def backward(self, grad_output):
+    def backward(self, grad_output: np.ndarray) -> np.ndarray:
          # grads for gamma and beta
         self.grad_beta = np.sum(grad_output, axis=0)
         self.grad_gamma = np.sum(self.xn * grad_output, axis=0)
@@ -146,7 +190,7 @@ class BatchNorm:
 
         return dx
     
-    def get_params_and_grads(self):
+    def get_params_and_grads(self) -> list[tuple[str, np.ndarray]]:
         params_grads = []
         if self.grad_gamma is not None:
             params_grads.append((self.gamma, self.grad_gamma))
@@ -157,7 +201,14 @@ class BatchNorm:
     def set_training(self, mode: bool):
         self.training = mode
 
-    def update_weights(self, learning_rate, optimizer="sgd", t=1, beta1=0.9, beta2=0.999, epsilon=1e-8):
+    def update_weights(self,
+                       learning_rate: float,
+                       optimizer: str="sgd",
+                       t: int=1,
+                       beta1:
+                       float=0.9,
+                       beta2: float=0.999,
+                       epsilon: float=1e-8):
         # possible optimizers:
         # sgd : standard gradient descent
         # momentum : momentum optimization
@@ -190,7 +241,13 @@ class BatchNorm:
 
 
 class Dense:
-    def __init__(self, num_inputs:int, num_neurons:int, activation="identity", weights=None, bias = None, activation_params = None):
+    def __init__(self,
+                 num_inputs: int,
+                 num_neurons: int,
+                 activation: str="identity", 
+                 weights: Optional[np.ndarray]=None,
+                 bias: Optional[np.ndarray]=None,
+                 activation_params:Optional[List]=None):
         """
         Arguments
         ---------
@@ -199,7 +256,7 @@ class Dense:
         num_neurons:   int
             number of neurons in the layer
         activation:    string
-             name of activation function (default is identity)
+            name of activation function (default is identity)
         weights:       array of size num_inputs x num_neurons
             optional initial weights to use. Randomized if not
             specified
@@ -211,10 +268,8 @@ class Dense:
             raise ValueError("Number of inputs must be positive")
         if num_neurons <=0:
             raise ValueError("Number of neurons must be positive")
-        self.m = num_inputs
-        self.n = num_neurons
-        self.activation_name = activation.lower()
-        self.has_dims = True
+        super().__init__(has_dims=True, m=num_inputs, n=num_neurons)
+        self.activation_name: str = activation.lower()
         if weights is not None:
             self.W = weights
         else:
@@ -243,7 +298,7 @@ class Dense:
         self.activation_params = activation_params or {}
         if self.activation_name not in activations.activation_functions:
             raise ValueError(f"Activation function {activation} not recognized. Must be one of {list(activations.activation_functions.keys())}")
-        self.activation = activations.activation_functions[self.activation_name](**self.activation_params)
+        self.activation: activations.Activation = activations.activation_functions[self.activation_name](**self.activation_params)
         self.x = None
         self.z = None
         self.grad_W = None
@@ -254,13 +309,13 @@ class Dense:
     def set_training(self, mode: bool):
         self.training = mode
         
-    def forward(self, x):
+    def forward(self, x:np.ndarray) -> np.ndarray:
         self.x = x
         self.z = x @ self.W.T + self.b
         a = self.activation.forward(self.z)
         return a
 
-    def backward(self, grad_output):
+    def backward(self, grad_output:np.ndarray) -> np.ndarray:
         # grad_output: dL/da
         grad_z = self.activation.backward(self.z) * grad_output  # dL/dz = dL/da * da/dz
         batch_size = grad_z.shape[0]
@@ -275,7 +330,7 @@ class Dense:
 
         return grad_input
 
-    def get_params_and_grads(self):
+    def get_params_and_grads(self) -> List[tuple[str , np.ndarray]]:
         # Only include if gradients are computed
         params_grads = []
         if self.grad_W is not None:
@@ -284,7 +339,13 @@ class Dense:
             params_grads.append((self.b, self.grad_b))
         return params_grads
 
-    def update_weights(self, learning_rate, optimizer="sgd", t=1, beta1=0.9, beta2=0.999, epsilon=1e-8):
+    def update_weights(self,
+                       learning_rate: float=0.01,
+                       optimizer: str="sgd", 
+                       t: int=1,
+                       beta1: float =0.9,
+                       beta2: float =0.999,
+                       epsilon: float=1e-8):
         # possible optimizers:
         # sgd : standard gradient descent
         # momentum : momentum optimization
@@ -315,16 +376,17 @@ class Dense:
 
 
 class Dropout:
-    def __init__(self, drop_prob):
+    def __init__(self, drop_prob:float):
+        super.__init__()
         self.drop_prob = drop_prob
         self.mask = None
         self.has_dims = False  # Dropout does not have fixed input/output dimensions
         self.training = True  # Default to training mode
         self.activation = activations.Identity()
         self.activation_name = "identity"
-        self.regularizable_params = []
+        
 
-    def forward(self, x):
+    def forward(self, x:np.ndarray) -> np.ndarray:
         if self.training:
             # Generate dropout mask
             self.mask = (np.random.rand(*x.shape) > self.drop_prob) / (1.0 - self.drop_prob)
@@ -333,14 +395,14 @@ class Dropout:
             # During evaluation, pass values through unchanged
             return x
 
-    def backward(self, grad_output):
+    def backward(self, grad_output:np.ndarray) -> np.ndarray:
         # Apply dropout mask to gradient
         return grad_output * self.mask
     
-    def get_params_and_grads(self):
+    def get_params_and_grads(self) -> List[tuple[str, np.ndarray]]:
         return []  # Dropout has no parameters
 
-    def update_weights(self, **_unused):
+    def update_weights(self, **_unused: Any):
         # Dropout has no weights to update
         # **kwargs is there because the feed forward will pass arguments for the dense layer
         pass
@@ -348,7 +410,9 @@ class Dropout:
         
 class FeedForward:
     # class to combine several layers and pass input to first layer then all the way through
-    def __init__(self, *layers, training=True):
+    def __init__(self, 
+                 *layers: Layer,
+                 training: bool=True):
         self.layers = layers
         self.last_layer = layers[-1]
         self.t = 1  # batch-level counter
@@ -371,22 +435,22 @@ class FeedForward:
                 last_index = i
 
         self.history = None
-    def forward(self, x):
+    def forward(self, x:np.ndarray) -> np.ndarray:
         # pass x through all the layers
         x = np.array(x)  # ensure x is an array
         for layer in self.layers:
             x = layer.forward(x)
         return x
-    def backward(self, grad_output):
+    def backward(self, grad_output:np.ndarray):
         for layer in reversed(self.layers):
             grad_output = layer.backward(grad_output)
     def update_weights(self,
-                       learning_rate = 0.01,
-                       optimizer="sgd",
-                       beta1=0.9,
-                       beta2=0.999,
-                       epsilon=1e-8,
-                       t=None):
+                       learning_rate: float = 0.01,
+                       optimizer: str="sgd",
+                       beta1: float=0.9,
+                       beta2: float=0.999,
+                       epsilon: float=1e-8,
+                       t: Optional[int]=None):
         """
         Apply the weight updates for all layers.
         """
@@ -403,36 +467,35 @@ class FeedForward:
             )
         
 
-    def __call__(self, x):
+    def __call__(self, x:np.ndarray) -> np.ndarray:
         return self.forward(x)
 
-    def set_training(self, mode=True):
+    def set_training(self, mode:bool=True):
         self.training = mode
         for layer in self.layers:
             if hasattr(layer, 'set_training'):
                 layer.set_training(mode)
-            elif hasattr(layer, 'training'):
-                layer.training = mode
+           
 
     def fit(
         self,
-        X,
-        y,
-        epochs=10,
-        loss_fn=None,
-        verbose=False,
-        learning_rate=0.01,
-        metric = None,
-        batch_size=32,
-        print_every=10,
-        val_size=None,
-        val_set=None,
-        clip_value=None,
-        random_state=None,
-        optimizer="sgd",
-        optimizer_config=None,
-        lambda_l1 = 0.0,
-        lambda_l2 = 0.0
+        X: Union[np.ndarray, List, DataFrame],
+        y: Union[np.ndarray, List, DataFrame, Series],
+        epochs: int=10,
+        loss_fn: Optional[Union[str , loss.Loss ]]=None,
+        verbose: bool=False,
+        learning_rate: float=0.01,
+        metric: Optional[Union[str, Callable[[np.ndarray, np.ndarray], float]]] = None,
+        batch_size: int=32,
+        print_every: int=10,
+        val_size: Optional[Union[int, float]]=None,
+        val_set: Optional[tuple[Union[np.ndarray, List, DataFrame], Union[np.ndarray, List, DataFrame, Series]]]=None,
+        clip_value: Optional[float]=None,
+        random_state: Optional[int]=None,
+        optimizer: str="sgd",
+        optimizer_config: Optional[Dict]=None,
+        lambda_l1: float=0.0,
+        lambda_l2: float=0.0
     ):
         """
         Fit model based on X, y.
@@ -499,7 +562,7 @@ class FeedForward:
         rng = np.random.default_rng(random_state)
         # get the number of neurons in the output layer
         output_size = self.layers[-1].n
-        final_activation = self.layers[-1].activation_name
+        final_activation = getattr(self.layers[-1], "activation_name", None)
         if final_activation == "softmax":
             self.from_logits = False
         else:
@@ -711,13 +774,13 @@ class FeedForward:
         self.history = history
         return copy.deepcopy(history)
 
-    def plot_history(self, *keys):
+    def plot_history(self, *keys: str):
         if self.history is None:
             print("No training has occured yet")
         else:
             plot_history(self.history, *keys)
             
-    def predict(self, X):
+    def predict(self, X: Union[DataFrame, np.ndarray, List]):
         """
         Predict target values using the trained FeedForward model.
 
@@ -748,7 +811,7 @@ class FeedForward:
         return out
     
    
-def plot_history(history, *keys):
+def plot_history(history, *keys: str):
     """
     function to plot from history generated from a .fit()
     Parameters
@@ -773,6 +836,6 @@ def plot_history(history, *keys):
 
 
 
-def evaluate(model, X):
+def evaluate(model: FeedForward, X: Union[DataFrame, np.ndarray, List]):
     model.set_training(False)
     return model(X)

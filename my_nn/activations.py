@@ -4,14 +4,14 @@ import numpy as np
 # Base class for activation functions
 class Activation(ABC):
     @abstractmethod
-    def forward(self, z):
+    def forward(self, z: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
-    def backward(self, z):
+    def backward(self, z:np.ndarray) -> np.ndarray:
         pass
 
-    def __call__(self, z):
+    def __call__(self, z:np.ndarray) -> np.ndarray:
         return self.forward(z)
 
 
@@ -49,7 +49,7 @@ class Identity(Activation):
 
 
 
-def softmax(logits):
+def softmax(logits:np.ndarray) -> np.ndarray:
     shifted_logits = logits - np.max(logits, axis=1, keepdims=True)
     exp_scores = np.exp(shifted_logits)
     return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
@@ -74,7 +74,7 @@ class LeakyReLU(Activation):
         return dz
 
 class ELU(Activation):
-    def __init__(self, alpha=1.0):
+    def __init__(self, alpha: float=1.0):
         self.alpha = alpha
 
     def forward(self, z):
@@ -91,6 +91,7 @@ class Swish(Activation):
     def backward(self, z):
         s = self.forward(z)/z
         return s + (1 - s) * s * z
+    
 activation_functions = {
     "relu": lambda **kwargs: ReLU(),
     "sigmoid": lambda **kwargs: Sigmoid(),
