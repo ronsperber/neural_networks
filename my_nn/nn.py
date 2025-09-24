@@ -105,6 +105,7 @@ class BatchNorm:
         self.activation = activations.Identity()
         self.activation_name = "identity"
         self.training = True
+        self.regularizable_params = []
     
     def forward(self, x):
         if self.training:
@@ -237,6 +238,7 @@ class Dense:
         self.v_b = np.zeros_like(self.b)
         self.m_W = np.zeros_like(self.W)   # first moment for Adam
         self.m_b = np.zeros_like(self.b)
+        self.regularizable_params = ["W"]
 
         self.activation_params = activation_params or {}
         if self.activation_name not in activations.activation_functions:
@@ -320,6 +322,7 @@ class Dropout:
         self.training = True  # Default to training mode
         self.activation = activations.Identity()
         self.activation_name = "identity"
+        self.regularizable_params = []
 
     def forward(self, x):
         if self.training:
@@ -626,13 +629,12 @@ class FeedForward:
                 if lambda_l1 > 0 or lambda_l2 >0:
                     reg_loss = 0.0
                     for layer in self.layers:
-                        for attr in ["W","kernel"]:
-                            if hasattr(layer, attr):
-                                param = getattr(layer,attr)
-                                if lambda_l1 > 0:
-                                    reg_loss += (lambda_l1 * np.sum(np.abs(param)))/(end - start)
-                                if lambda_l2 > 0:
-                                    reg_loss += (0.5 * lambda_l2 * np.sum(param**2))/(end - start)
+                        for attr in layer.regularizable_params:
+                            param = getattr(layer,attr)
+                            if lambda_l1 > 0:
+                                reg_loss += (lambda_l1 * np.sum(np.abs(param)))/(end - start)
+                            if lambda_l2 > 0:
+                                reg_loss += (0.5 * lambda_l2 * np.sum(param**2))/(end - start)
                     loss_batch += reg_loss
 
                 epoch_loss += loss_batch * (end - start)  # weighted sum for averaging later
@@ -644,14 +646,13 @@ class FeedForward:
                 self.backward(loss_grad)
                 # adjust gradients if there is regularization.
                 for layer in self.layers:
-                    for attr in ["W", "kernel"]:
-                        if hasattr(layer, attr):
-                            param = getattr(layer, attr)
-                            grad = getattr(layer, "grad_" + attr)
-                            if lambda_l1 > 0:
-                                grad += lambda_l1 * np.sign(param) / (end - start)
-                            if lambda_l2 > 0:
-                                grad +=  lambda_l2 * param /(end - start)
+                    for attr in layer.regularizable_params:
+                        param = getattr(layer, attr)
+                        grad = getattr(layer, "grad_" + attr)
+                        if lambda_l1 > 0:
+                            grad += lambda_l1 * np.sign(param) / (end - start)
+                        if lambda_l2 > 0:
+                            grad +=  lambda_l2 * param /(end - start)
                 # clip gradients if requested
                 if clip_value is not None:
                     for layer in self.layers:
@@ -693,6 +694,16 @@ class FeedForward:
                 for name, val in val_metric_values.items():
                     history[f"val_{name}"].append((epoch + last_epoch,val))
                 val_loss = self.loss_fn.forward(y_test_pred, y_val)
+                if lambda_l1 > 0 or lambda_l2 > 0:
+                    val_reg_loss = 0.0
+                    for layer in self.layers:
+                        for attr in layer.regularizable_params:
+                            param = getattr(layer, attr)
+                            if lambda_l1 > 0:
+                                val_reg_loss += lambda_l1 * np.sum(np.abs(param)) / X_val.shape[0]
+                            if lambda_l2 > 0:
+                                val_reg_loss += 0.5 * lambda_l2 * np.sum(param ** 2) / X_val.shape[0]
+                    val_loss += val_reg_loss
                 history["val_loss"].append((epoch+last_epoch,val_loss))
                 val_metrics_str = ", ".join(f"{name}: {val:.4f}" for name, val in val_metric_values.items())
                 print(f"Validation set: loss: {val_loss:.4f}, {val_metrics_str}")

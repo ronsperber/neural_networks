@@ -1,7 +1,7 @@
 
 import numpy as np
 import pytest
-from my_nn.nn import FeedForward, Dense
+from my_nn.nn import FeedForward, Dense, BatchNorm, Dropout
 from my_nn import loss
 
 def test_l2_regularization_gradients():
@@ -257,3 +257,29 @@ def test_dense_regularization_fit_loss():
     # Compare
     assert np.isclose(total_loss_recorded, expected_total_loss), \
         f"Expected {expected_total_loss}, got {total_loss_recorded}"
+    
+def test_non_regularizable_layer():
+    # test to make sure no error occurs if we include layers with no 
+    # regularizable parameters
+    X = np.array([[1]])
+    y = np.array([[0]])
+
+    model = FeedForward(
+        Dense(1,2, activation="relu"),
+        BatchNorm(2),
+        Dense(2,2),
+        Dropout(0.5),
+        Dense(2,1, activation="sigmoid")
+    )
+    lambda_l1 = 0.1
+    lambda_l2 = 0.05
+
+    history = model.fit(
+        X, y,
+        epochs=1,
+        learning_rate=0.01,
+        lambda_l1=lambda_l1,
+        lambda_l2=lambda_l2,
+        batch_size=1,
+        loss_fn="binary_cross_entropy"
+        )
