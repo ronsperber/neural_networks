@@ -377,7 +377,7 @@ class Dense(Layer):
 
 class Dropout(Layer):
     def __init__(self, drop_prob:float):
-        super.__init__()
+        super().__init__()
         self.drop_prob = drop_prob
         self.mask = None
         self.has_dims = False  # Dropout does not have fixed input/output dimensions
