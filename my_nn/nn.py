@@ -756,10 +756,10 @@ class FeedForward:
             epoch_loss /= num_samples
             history["loss"].append((epoch+last_epoch,epoch_loss))
             train_metrics_str = ", ".join(f"{name}: {val:.4f}" for name, val in train_metric_values.items())
-            print(f"Epoch {epoch}/{epochs}: loss: {epoch_loss:.4f}, {train_metrics_str}", end = " - ")
+            print(f"Epoch {epoch}/{epochs}: loss: {epoch_loss:.4f}, {train_metrics_str}", end = " ")
             # if no validation set we stop
             if not use_validate:
-                print("\n")
+                print("")
             #if there is we compute the loss/accuracy on the validation set from that epoch and report it
             else:
                 y_test_pred = self.predict(X_val)
@@ -779,7 +779,7 @@ class FeedForward:
                     val_loss += val_reg_loss
                 history["val_loss"].append((epoch+last_epoch,val_loss))
                 val_metrics_str = ", ".join(f"{name}: {val:.4f}" for name, val in val_metric_values.items())
-                print(f"Validation set: loss: {val_loss:.4f}, {val_metrics_str}")
+                print(f"- Validation set: loss: {val_loss:.4f}, {val_metrics_str}")
 
         self.history = history
         return copy.deepcopy(history)
