@@ -269,12 +269,12 @@ class Dense(Layer):
         if num_neurons <=0:
             raise ValueError("Number of neurons must be positive")
         super().__init__(has_dims=True, m=num_inputs, n=num_neurons)
-        self.activation_params = activation_params or {}
+        activation_params = activation_params or {}
         if isinstance(activation, str):
-            activation = activation.lower()
-            if activation in activations.activation_functions:
-                self.activation_name = activation
-                self.activation: activations.Activation = activations.activation_functions[activation](**activation_params)
+            act_name= activation.lower()
+            if act_name in activations.activation_functions:
+                self.activation_name = act_name
+                self.activation: activations.Activation = activations.activation_functions[act_name](**activation_params)
             else:
                 raise ValueError(f"Activation function {activation} not recognized. Must be one of {list(activations.activation_functions.keys())}")
         elif isinstance(activation, activations.Activation):
