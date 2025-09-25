@@ -10,4 +10,4 @@ dependencies:
   - python
   - ipykernel
   - pytest
-
+prefix: C:\Users\ronsp\anaconda3\envs\neural_networks
