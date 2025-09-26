@@ -1,5 +1,11 @@
+"""
+module of metrics to use for ML models
+"""
+
+
 # import libraries
 import numpy as np
+
 
 def mse(y_pred, y_true):
     """
@@ -15,6 +21,7 @@ def mse(y_pred, y_true):
     y_pred = np.asarray(y_pred).ravel()
     y_true = np.asarray(y_true).ravel()
     return np.mean((y_pred - y_true) ** 2)
+
 
 def binary_accuracy(y_pred, y_true):
     """
@@ -33,11 +40,10 @@ def binary_accuracy(y_pred, y_true):
     return np.mean(y_pred_binary == y_true)
 
 
-
 def accuracy(y_pred, y_true, multilabel_mode="elementwise"):
     """
     Compute accuracy for binary, multi-class, or multi-label classification.
-    
+
     Parameters
     ----------
     y_pred : np.ndarray
@@ -50,7 +56,7 @@ def accuracy(y_pred, y_true, multilabel_mode="elementwise"):
         Shape matches y_pred for binary and multi-label.
         Shape (batch,) for multi-class (class indices).
     multilabel_mode : {"elementwise","subset"}, default="elementwise"
-        - "elementwise": fraction of correctly predicted labels across all samples.
+        - "elementwise": fraction of correctly predicted labels across all.
         - "subset": fraction of samples where *all* labels are exactly correct.
     """
     y_pred = np.asarray(y_pred)
@@ -59,19 +65,18 @@ def accuracy(y_pred, y_true, multilabel_mode="elementwise"):
     if y_pred.ndim == 1 or (y_pred.ndim == 2 and y_pred.shape[1] == 1):
         y_pred_binary = np.round(y_pred.ravel())
         return np.mean(y_pred_binary == y_true.ravel())
-    
+
     # multi-label case
-    elif y_true.ndim == 2 and set(np.unique(y_true)) <= {0,1}:
+    if y_true.ndim == 2 and set(np.unique(y_true)) <= {0, 1}:
         y_pred_binary = (y_pred >= 0.5).astype(int)
         if multilabel_mode == "subset":
             return np.mean(np.all(y_pred_binary == y_true, axis=1))
-        else:  # elementwise
-            return np.mean(y_pred_binary == y_true)
+        # elementwise
+        return np.mean(y_pred_binary == y_true)
 
     # multi-class case
-    else:
-        y_pred_classes = np.argmax(y_pred, axis=1)
-        return np.mean(y_pred_classes == y_true.ravel())
+    y_pred_classes = np.argmax(y_pred, axis=1)
+    return np.mean(y_pred_classes == y_true.ravel())
 
 
 def categorical_accuracy(y_pred, y_true):
@@ -89,6 +94,7 @@ def categorical_accuracy(y_pred, y_true):
 
     return np.mean(y_pred_classes == y_true)
 
+
 def mae(y_pred, y_true):
     """
     Compute Mean Absolute Error between predicted and true values.
@@ -103,6 +109,7 @@ def mae(y_pred, y_true):
     y_pred = np.asarray(y_pred).ravel()
     y_true = np.asarray(y_true).ravel()
     return np.mean(np.abs(y_pred - y_true))
+
 
 def precision(y_pred, y_true):
     """
@@ -120,11 +127,12 @@ def precision(y_pred, y_true):
     y_pred_binary = np.round(y_pred)
     true_positives = np.sum((y_pred_binary == 1) & (y_true == 1))
     predicted_positives = np.sum(y_pred_binary == 1)
-    
+
     if predicted_positives == 0:
         return 0.0
-    
+
     return true_positives / predicted_positives
+
 
 def recall(y_pred, y_true):
     """
@@ -142,11 +150,12 @@ def recall(y_pred, y_true):
     y_pred_binary = np.round(y_pred)
     true_positives = np.sum((y_pred_binary == 1) & (y_true == 1))
     actual_positives = np.sum(y_true == 1)
-    
+
     if actual_positives == 0:
         return 0.0
-    
+
     return true_positives / actual_positives
+
 
 def f1_score(y_pred, y_true):
     """
@@ -161,15 +170,17 @@ def f1_score(y_pred, y_true):
     """
     prec = precision(y_pred, y_true)
     rec = recall(y_pred, y_true)
-    
+
     if (prec + rec) == 0:
         return 0.0
-    
+
     return 2 * (prec * rec) / (prec + rec)
+
 
 def r2_score(y_pred, y_true):
     """
-    Compute R-squared (Coefficient of Determination) between predicted and true values.
+    Compute R-squared (Coefficient of Determination)
+    between predicted and true values.
 
     Parameters:
     y_pred (np.ndarray): Predicted values.
@@ -182,11 +193,12 @@ def r2_score(y_pred, y_true):
     y_true = np.asarray(y_true).ravel()
     ss_res = np.sum((y_true - y_pred) ** 2)
     ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    
+
     if ss_tot == 0:
         return 0.0
-    
+
     return 1 - (ss_res / ss_tot)
+
 
 def specificity(y_pred, y_true):
     """
@@ -204,11 +216,12 @@ def specificity(y_pred, y_true):
     y_pred_binary = np.round(y_pred)
     true_negatives = np.sum((y_pred_binary == 0) & (y_true == 0))
     actual_negatives = np.sum(y_true == 0)
-    
+
     if actual_negatives == 0:
         return 0.0
-    
+
     return true_negatives / actual_negatives
+
 
 def balanced_accuracy(y_pred, y_true):
     """
@@ -223,8 +236,9 @@ def balanced_accuracy(y_pred, y_true):
     """
     rec = recall(y_pred, y_true)
     spec = specificity(y_pred, y_true)
-    
+
     return (rec + spec) / 2
+
 
 metrics_dict = {
     "mse": mse,
