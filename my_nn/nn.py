@@ -192,6 +192,8 @@ class BatchNorm(Layer):
         self.mu = None
         self.var = None
         self.std = None
+        self.grad_gamma = None
+        self.grad_beta = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         if self.training:
