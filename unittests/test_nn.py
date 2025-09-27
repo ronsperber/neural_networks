@@ -7,6 +7,42 @@ from my_nn import nn, loss, activations
 unit tests for the neural networks
 run pytest test_nn.py to check
 """
+class DummyActivation(activations.Activation):
+    def forward(self, x):
+        return x
+
+    def backward(self, x):
+        return x
+
+def test_get_loss_fn_str():
+    output_size = 1
+    from_logits = False
+    loss_fn = "binary_cross_entropy"
+    loss_fn = nn.get_loss_fn(loss_fn, output_size, from_logits)
+    assert(isinstance(loss_fn, loss.BinaryCrossEntropyLoss))
+
+def test_get_loss_fn_loss():
+    output_size = 1
+    from_logits = False
+    loss_fn = loss.BinaryCrossEntropyLoss()
+    loss_fn = nn.get_loss_fn(loss_fn, output_size, from_logits)
+    assert(isinstance(loss_fn, loss.BinaryCrossEntropyLoss))
+
+def test_get_loss_fn_none():
+    output_size_1 = 1
+    output_size_2 = 2
+    from_logits = False
+    loss_fn_1 = nn.get_loss_fn(None, output_size_1, from_logits)
+    loss_fn_2 = nn.get_loss_fn(None, output_size_2, from_logits)
+    assert(isinstance(loss_fn_1, loss.MSE))
+    assert(isinstance(loss_fn_2, loss.SoftmaxCrossEntropyLoss))
+
+def test_custom_activation():
+    layer = nn.Dense(2,2, activation = DummyActivation())
+    x = np.array([[1,2]])
+    assert np.array_equal(layer.activation(x),x)
+    assert layer.activation_name == "dummyactivation"
+    assert isinstance(layer.activation, activations.Activation)
 
 def test_defaults_and_activation_names():
     # Dense layer sets activation_name correctly
@@ -78,6 +114,15 @@ def test_invalid_activation_name():
 def test_name_of_class_activation():
     layer = nn.Dense(2, 2, activation = activations.ReLU())
     assert layer.activation_name == "relu"
+
+def test_activation_aliases():
+    layer_1 = nn.Dense(2, 2, activation = "swish")
+    layer_2 = nn.Dense(2, 2, activation = "SiLU")
+    layer_3 = nn.Dense(2, 2, activation = activations.Swish())
+
+    assert layer_1.activation_name == "silu"
+    assert layer_2.activation_name == "silu"
+    assert layer_3.activation_name == "silu"
 
 def test_optimizer_config_defaults():
     layer = nn.Dense(2, 2)

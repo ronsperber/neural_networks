@@ -69,6 +69,36 @@ def one_hot_encode(y: np.ndarray) -> np.ndarray:
     """
     return np.eye(y.max() + 1)[y]
 
+def get_loss_fn(
+        loss_fn: Optional[Union[str, loss.Loss]],
+        output_size: int,
+        from_logits: bool
+):
+    if loss_fn is None:
+        if output_size == 1:
+            loss_fn = loss.MSE()
+            print("No loss function specified, Loss function set to MSE")
+            print("Warning: this may not be appropriate for classification")
+        else:
+            loss_fn = loss.SoftmaxCrossEntropyLoss(from_logits=from_logits)
+            print("No loss function specified, set to Softmax Cross Entropy Loss")
+            print("Warning: this may not be valid other than multiclass classification")
+    elif isinstance(loss_fn, str):
+        if loss_fn in loss.loss_functions:
+            loss_fn = loss.loss_functions[loss_fn](from_logits)
+        else:
+            keys = list(loss.loss_functions.keys())
+            raise ValueError(
+                f"{loss_fn} is not a valid key. "
+                f"Valid keys are {keys}")
+    elif isinstance(loss_fn, loss.Loss):
+        # already a loss function, leave alone
+        pass
+    else:
+        raise TypeError(
+            "Invalid type of Loss, must be string of `loss.Loss` ")
+    return loss_fn
+
 
 def train_test_split(
         X: np.ndarray,
@@ -347,6 +377,11 @@ class Dense(Layer):
             self.activation = activation
         else:
             raise TypeError("Activation must be string or Activation")
+        # get normalized activation name
+        self.activation_name = activations.activation_aliases.get(
+            self.activation_name,
+            self.activation_name
+        )
         if weights is not None:
             self.W = weights
         else:
@@ -675,32 +710,7 @@ class FeedForward:
         else:
             from_logits = True
         # set up loss function. If none is given, use mse or softmax based on output size
-        if loss_fn is None:
-            if output_size == 1:
-                loss_fn = loss.MSE()
-                print(
-                    "No loss function specified, using mse, warning: "
-                    "this may not be appropriate for classification"
-                    )
-            else:
-                loss_fn = loss.SoftmaxCrossEntropyLoss(from_logits=from_logits)
-                print(
-                    "No loss function specified, using categorical_cross_entropy, "
-                    "warning: this may not be appropriate for regression"
-                    )
-        elif isinstance(loss_fn, str):
-            # if a string is given, look up in loss_functions
-            if loss_fn in loss.loss_functions:
-                loss_fn = loss.loss_functions[loss_fn](from_logits)
-            else:
-                keys = list(loss.loss_functions.keys())
-                raise ValueError(
-                    f"Loss function {loss_fn} not recognized. Must be a Loss class or in {keys}")
-        elif isinstance(loss_fn, loss.Loss):
-            pass  # already a loss function
-        else:
-            # if not a string or loss function,  raise error
-            raise TypeError("Loss must be a Loss class or a string key in loss_functions")
+        loss_fn = get_loss_fn(loss_fn, output_size, from_logits)
         if metric is None:
             # if no metric is given, use mse for regression and accuracy for classification
             if output_size == 1:

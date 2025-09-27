@@ -158,5 +158,20 @@ activation_functions = {
     "leaky_relu": lambda alpha=0.01, **kwargs: LeakyReLU(alpha=alpha),
     "elu": lambda alpha=1.0, **kwargs: ELU(alpha=alpha),
     "swish": lambda **kwargs: Swish(),
+    "silu": lambda **kwargs: Swish(),
     "softmax": lambda **kwargs: SoftMax()
+}
+
+# aliases for when the same function has multiple keys
+activation_aliases = {
+    "relu": "relu",
+    "sigmoid": "sigmoid",
+    "tanh": "tanh",
+    "identity": "identity",
+    "linear": "identity",
+    "leaky_relu": "leaky_relu",
+    "elu": "elu",
+    "swish": "silu",
+    "silu": "silu",
+    "softmax": "softmax"
 }
