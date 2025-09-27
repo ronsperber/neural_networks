@@ -343,7 +343,7 @@ class Dense(Layer):
                     f"Activation function {activation} not recognized. Must be one of {keys}"
                     )
         elif isinstance(activation, activations.Activation):
-            self.activation_name = type(activation).__name__
+            self.activation_name = (type(activation).__name__).lower()
             self.activation = activation
         else:
             raise TypeError("Activation must be string or Activation")

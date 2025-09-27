@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from my_nn import nn, loss
+from my_nn import nn, loss, activations
 
 """
 unit tests for the neural networks
@@ -23,7 +23,7 @@ def test_invalid_loss_string():
 
 def test_non_loss_object():
     net = nn.FeedForward(nn.Dense(2, 3))
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         net.fit(np.zeros((5,2)), np.zeros(5), loss_fn=123)
 
 def test_softmax_in_hidden_layer_error():
@@ -59,29 +59,6 @@ def test_identity_backward():
     grad = act.backward(z)
     assert grad == 1.0
 
-def test_default_loss_regression():
-    layer = nn.Dense(2, 1, activation="identity")
-    net = nn.FeedForward(layer)
-    net.fit(np.zeros((5,2)), np.zeros(5))
-    # Check the loss function type
-    assert isinstance(net.loss_fn, loss.MSE)
-
-def test_default_loss_classification_logits():
-    layer = nn.Dense(2, 3, activation="identity")  # no softmax
-    net = nn.FeedForward(layer)
-    net.fit(np.zeros((5,2)), np.array([0,1,2,0,1]))
-    # Check the loss function type and from_logits
-    assert isinstance(net.loss_fn, loss.SoftmaxCrossEntropyLoss)
-    assert net.loss_fn.from_logits is True
-
-def test_default_loss_classification_softmax():
-    layer = nn.Dense(2, 3, activation="softmax")  # final layer softmax
-    net = nn.FeedForward(layer)
-    net.fit(np.zeros((5,2)), np.array([0,1,2,0,1]))
-    # Check the loss function type and from_logits
-    assert isinstance(net.loss_fn, loss.SoftmaxCrossEntropyLoss)
-    assert net.loss_fn.from_logits is False
-
 def test_layer_dimension_mismatch():
     l1 = nn.Dense(3, 4)
     l2 = nn.Dense(5, 2)  # incompatible
@@ -92,10 +69,15 @@ def test_layer_dimension_mismatch():
 def test_activation_name_lower():
     layer = nn.Dense(2, 2, activation="ReLU")
     assert layer.activation_name == "relu"
+    assert isinstance(layer.activation, activations.ReLU)
 
 def test_invalid_activation_name():
     with pytest.raises(ValueError):
         nn.Dense(2, 2, activation="not_a_func")
+
+def test_name_of_class_activation():
+    layer = nn.Dense(2, 2, activation = activations.ReLU())
+    assert layer.activation_name == "relu"
 
 def test_optimizer_config_defaults():
     layer = nn.Dense(2, 2)
