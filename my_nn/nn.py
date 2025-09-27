@@ -970,7 +970,7 @@ def plot_history(history, *keys: str):
         plt.plot(x, y)
     # add the legend
     plt.legend(legend)
-    # at a title
+    # add a title
     title_str = "History training for : " + ", ".join(list(keys))
     plt.title(title_str)
     plt.show()
