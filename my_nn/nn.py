@@ -467,9 +467,8 @@ class Dropout(Layer):
             # Generate dropout mask
             self.mask = (np.random.rand(*x.shape) > self.drop_prob) / (1.0 - self.drop_prob)
             return x * self.mask
-        else:
-            # During evaluation, pass values through unchanged
-            return x
+        # During evaluation, pass values through unchanged
+        return x
 
     def backward(self, grad_output: np.ndarray) -> np.ndarray:
         # Apply dropout mask to gradient
@@ -721,8 +720,9 @@ class FeedForward:
                     metric_list[i] = metric
                 else:
                     keys = list(metrics.metrics_dict.keys())
-                    raise ValueError
-                (f"Metric {metric} not recognized. Must be a callable or one of {keys}")
+                    raise ValueError(
+                        f"Metric {metric} not recognized. Must be a callable or one of {keys}"
+                        )
             elif not callable(metric):
                 raise ValueError("Metric must be a callable or a string key in metrics_dict")
             # add the name of the metric for history tracking
@@ -909,6 +909,9 @@ class FeedForward:
         return copy.deepcopy(history)
 
     def plot_history(self, *keys: str):
+        """
+        plot the history based on given keys
+        """
         if self.history is None:
             print("No training has occured yet")
         else:
@@ -967,6 +970,9 @@ def plot_history(history, *keys: str):
         plt.plot(x, y)
     # add the legend
     plt.legend(legend)
+    # at a title
+    title_str = "History training for : " + ", ".join(list(keys))
+    plt.title(title_str)
     plt.show()
 
 
