@@ -3,8 +3,48 @@ module with activations functions for neural networks
 """
 
 from abc import ABC, abstractmethod
+from typing import Union, Callable
 import numpy as np
 
+def grad(func : Callable, x : Union[float, np.ndarray], eps: float = 1e-8):
+    """
+    Numerically approximate the gradient of a function f at x using central differences.
+
+    Parameters
+    ----------
+    func : callable
+        Function to differentiate. Should accept a scalar or NumPy array and return a scalar or array of the same shape.
+    x : np.ndarray or float
+        Point(s) at which to evaluate the gradient.
+    eps : float, optional
+        Step size for finite differences (default: 1e-8).
+
+    Returns
+    -------
+    np.ndarray or float
+        Approximate derivative(s) of f at x.
+
+    Notes
+    -----
+    This function is intended for testing or debugging custom activation functions or
+    other differentiable components. It is **not suitable for use during training** in
+    neural networks, because:
+        - It is much slower than analytic backpropagation.
+        - Results may be inaccurate at nondifferentiable points (e.g., ReLU at 0).
+        - Small floating-point errors can accumulate for large arrays.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from my_nn import activations as act
+    >>> X = np.array([[1.0, -1.0, 2.0]])
+    >>> relu = act.ReLU()
+    >>> y_exact = relu.backward(X)
+    >>> y_numeric = grad(relu.forward, X)
+    >>> np.allclose(y_exact, y_numeric)
+    True
+    """
+    return (func(x + eps) - func(x - eps))/(2 * eps)
 
 class Activation(ABC):
 
@@ -137,16 +177,13 @@ class ELU(Activation):
         return dz
 
 
-class Swish(Activation):
-    """
-    Swish activation
-    """
+class Swish:
     def forward(self, z):
-        return z / (1 + np.exp(-z))
+        return z / (1.0 + np.exp(-z))
 
     def backward(self, z):
-        s = self.forward(z)/z
-        return s + (1 - s) * s * z
+        sig = 1 / (1.0 + np.exp(-z))
+        return sig + z * sig * (1 - sig)
 
 
 activation_functions = {
