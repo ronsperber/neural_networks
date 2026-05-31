@@ -16,8 +16,14 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
-    "seaborn"
+    "seaborn",
+    "scikit-learn>=1.6.1",
 ]
 
 [tool.setuptools]
 packages = ["my_nn"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.31.0",
+]
